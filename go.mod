@@ -1,4 +1,3 @@
-// TODO: Recreate go.mod
-module github.com/ianlewis/repo-template-go
+module github.com/ianlewis/go-dictzip
 
 go 1.23.2

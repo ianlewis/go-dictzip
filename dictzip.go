@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
-
-import "fmt"
-
-func main() {
-	fmt.Println("Hello World!")
-}
+// Package dictzip implements the dictzip compression format.
+// Dictzip compresses files using the gzip(1) algorithm (LZ77) in a manner which
+// is completely compatible with the gzip file format.
+// See: https://linux.die.net/man/1/dictzip
+// See: https://linux.die.net/man/1/gzip
+// See: https://datatracker.ietf.org/doc/html/rfc1952
+package dictzip
