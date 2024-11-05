@@ -105,6 +105,9 @@ linters-settings:
 
           # This project.
           - "github.com/ianlewis/go-dictzip"
+
+          # Dependencies.
+          - "github.com/google/go-cmp/cmp"
         deny:
           - pkg: "reflect"
             desc: Use go-cmp instead.
