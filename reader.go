@@ -28,6 +28,8 @@ var (
 	errMissingHeader          = errors.New("dictzip header data not found")
 	errUnsupportedCompression = errors.New("unsupported compression method")
 	errUnsupportedVersion     = errors.New("unsupported dictzip version")
+	errUnsupportedSeek        = errors.New("unsupported seek mode")
+	errNegativeOffset         = errors.New("negative offset")
 )
 
 // readCloseResetter is an interface that wraps the io.ReadCloser and
@@ -41,10 +43,18 @@ type readCloseResetter interface {
 // Reader implements [io.Reader] and [io.ReaderAt]. It provides random access
 // to the compressed data.
 type Reader struct {
-	r         io.ReadSeeker
-	z         readCloseResetter
+	r io.ReadSeeker
+	z readCloseResetter
+
+	// offset is the offset into the uncompressed data.
+	offset int64
+
+	// chunkSize is the size of uncompressed chunks.
 	chunkSize int64
-	offsets   []int64
+
+	// offsets is a list of offsets to the compressed chunks in the underlying
+	// reader.
+	offsets []int64
 }
 
 // NewReader returns a new dictzip [Reader] reading compressed data from the
@@ -52,12 +62,14 @@ type Reader struct {
 // responsibility of the caller to Close on that reader when it is not longer
 // used.
 //
+// NewReader will call Seek on the given reader to ensure that it is being read
+// from the beginning.
+//
 // It is the callers responsibility to call [Close] on the returned [Reader]
 // when done.
 func NewReader(r io.ReadSeeker) (*Reader, error) {
 	fr := flate.NewReader(r)
 	z := &Reader{
-		r: r,
 		z: fr.(readCloseResetter),
 	}
 	if err := z.Reset(r); err != nil {
@@ -69,18 +81,30 @@ func NewReader(r io.ReadSeeker) (*Reader, error) {
 
 // Reset discards the reader's state and resets it to the initial state as
 // returned by NewReader but reading from the r instead.
-func (z *Reader) Reset(r io.Reader) error {
+//
+// Reset will call Seek on the given reader to ensure that it is being read
+// from the beginning.
+func (z *Reader) Reset(r io.ReadSeeker) error {
+	z.r = r
+	z.offset = 0
+	if _, err := r.Seek(z.offset, io.SeekStart); err != nil {
+		return fmt.Errorf("Seek: %w", err)
+	}
+
 	// Read the first 10 bytes of the header.
-	chunkSize, offsets, err := readHeader(r)
+	_, chunkSize, offsets, err := readHeader(z.r)
 	if err != nil {
 		return err
 	}
-
 	z.chunkSize = chunkSize
 	z.offsets = offsets
 
 	//nolint:wrapcheck // error does not need to be wrapped
-	return z.z.Reset(r, nil)
+	if err := z.z.Reset(r, nil); err != nil {
+		return fmt.Errorf("Reset: %w", err)
+	}
+
+	return nil
 }
 
 // Close closes the reader. It does not close the underlying io.Reader.
@@ -90,26 +114,52 @@ func (z *Reader) Close() error {
 }
 
 // Read implements [io.Reader].
-func (z *Reader) Read(_ []byte) (int, error) {
-	// TODO(#3): implement Read
-	return 0, nil
+func (z *Reader) Read(p []byte) (int, error) {
+	buf, err := z.readChunk(z.offset, int64(len(p)))
+	if err != nil {
+		return 0, err
+	}
+	n := copy(p, buf)
+	z.offset += int64(n)
+	return n, nil
 }
 
-// ReadAt implements the [io.ReaderAt] interface.
+// ReadAt implements [io.ReaderAt.ReadAt].
 func (z *Reader) ReadAt(p []byte, off int64) (int, error) {
 	buf, err := z.readChunk(off, int64(len(p)))
 	if err != nil {
 		return 0, err
 	}
-	copy(p, buf)
-	return len(p), nil
+	return copy(p, buf), nil
 }
 
-func (z *Reader) Seek(_ int64, _ int) (int64, error) {
-	// TODO(#3): implement Seek
-	return 0, nil
+// Seek implements [io.Seeker.Seek].
+func (z *Reader) Seek(offset int64, whence int) (int64, error) {
+	var err error
+
+	switch whence {
+	case io.SeekStart:
+		if offset < 0 {
+			err = errNegativeOffset
+		} else {
+			z.offset = offset
+		}
+	case io.SeekCurrent:
+		newOffset := z.offset + offset
+		if newOffset < 0 {
+			err = errNegativeOffset
+		} else {
+			z.offset = newOffset
+		}
+	default:
+		err = fmt.Errorf("%w: %v", errUnsupportedSeek, whence)
+	}
+
+	return z.offset, err
 }
 
+// readChunk reads and decompresses data of size at offset. It returns the
+// number of bytes advanced in the underlying reader and bytes read.
 func (z *Reader) readChunk(offset, size int64) ([]byte, error) {
 	chunkNum := offset / z.chunkSize
 	chunkOffset := z.offsets[chunkNum]
@@ -132,7 +182,7 @@ func (z *Reader) readChunk(offset, size int64) ([]byte, error) {
 	chunkReadSize := size + (offset - chunkFileOffset)
 
 	buf := make([]byte, chunkReadSize)
-	_, err := io.ReadFull(z.z, buf)
+	_, err := z.z.Read(buf)
 	if err != nil {
 		return nil, fmt.Errorf("decompressing: %w", err)
 	}
@@ -306,26 +356,26 @@ func readExtraSizes(r io.Reader) (int64, []int64, error) {
 
 // readHeader reads the gzip header for dictzip specific headers and returns
 // offsets and blocksize used for random access.
-func readHeader(r io.Reader) (int64, []int64, error) {
+func readHeader(r io.Reader) (int64, int64, []int64, error) {
 	var chunkSize int64
 	var sizes []int64
-	var startOffset int
+	var startOffset int64
 
 	n, flg, err := readFlg(r)
-	startOffset += n
+	startOffset += int64(n)
 	if err != nil {
-		return 0, nil, err
+		return startOffset, 0, nil, err
 	}
 
 	if flg&flgEXTRA == 0 {
-		return 0, nil, fmt.Errorf("%w: no EXTRA field", errMissingHeader)
+		return startOffset, 0, nil, fmt.Errorf("%w: no EXTRA field", errMissingHeader)
 	}
 
 	// Read the EXTRA field
 	n, chunkSize, sizes, err = readExtra(r)
-	startOffset += n
+	startOffset += int64(n)
 	if err != nil {
-		return 0, nil, err
+		return startOffset, 0, nil, err
 	}
 
 	// Skip the NAME
@@ -333,9 +383,9 @@ func readHeader(r io.Reader) (int64, []int64, error) {
 		buf := make([]byte, 1)
 		for {
 			n, err := io.ReadFull(r, buf)
-			startOffset += n
+			startOffset += int64(n)
 			if err != nil {
-				return 0, nil, fmt.Errorf("reading name header: %w", err)
+				return startOffset, 0, nil, fmt.Errorf("reading name header: %w", err)
 			}
 			if buf[0] == 0 {
 				break
@@ -348,9 +398,9 @@ func readHeader(r io.Reader) (int64, []int64, error) {
 		buf := make([]byte, 1)
 		for {
 			n, err := io.ReadFull(r, buf)
-			startOffset += n
+			startOffset += int64(n)
 			if err != nil {
-				return 0, nil, fmt.Errorf("reading comment header: %w", err)
+				return startOffset, 0, nil, fmt.Errorf("reading comment header: %w", err)
 			}
 			if buf[0] == 0 {
 				break
@@ -363,9 +413,9 @@ func readHeader(r io.Reader) (int64, []int64, error) {
 	if flg&flgCRC != 0 {
 		buf := make([]byte, 2)
 		n, err := io.ReadFull(r, buf)
-		startOffset += n
+		startOffset += int64(n)
 		if err != nil {
-			return 0, nil, fmt.Errorf("reading comment header: %w", err)
+			return startOffset, 0, nil, fmt.Errorf("reading comment header: %w", err)
 		}
 	}
 
@@ -376,5 +426,5 @@ func readHeader(r io.Reader) (int64, []int64, error) {
 		offsets[i+1] = offsets[i] + sizes[i]
 	}
 
-	return chunkSize, offsets, nil
+	return startOffset, chunkSize, offsets, nil
 }

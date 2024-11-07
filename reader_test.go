@@ -24,6 +24,220 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
+func TestReader_Read(t *testing.T) {
+	t.Parallel()
+
+	f, err := os.Open("internal/testdata/test.txt.dz")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	r, err := NewReader(f)
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+
+	// r.offset should be at the beginning of the file.
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Fatalf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	buf := make([]byte, 10)
+	n, err := r.Read(buf)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+
+	if diff := cmp.Diff(10, n); diff != "" {
+		t.Errorf("Read (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff([]byte("0123456789"), buf); diff != "" {
+		t.Errorf("Read (-want, +got):\n%s", diff)
+	}
+
+	// r.offset should should be advanced by the # of read bytes.
+	if diff := cmp.Diff(int64(10), r.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	buf2 := make([]byte, 15)
+	n, err = r.Read(buf2)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+
+	if diff := cmp.Diff(15, n); diff != "" {
+		t.Errorf("Read (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff([]byte("abcdefghijklmno"), buf2); diff != "" {
+		t.Errorf("Read (-want, +got):\n%s", diff)
+	}
+
+	// r.offset should should be advanced by the # of read bytes.
+	if diff := cmp.Diff(int64(25), r.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+}
+
+func TestReader_Seek(t *testing.T) {
+	t.Parallel()
+
+	f, err := os.Open("internal/testdata/test.txt.dz")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	r, err := NewReader(f)
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+
+	// r.offset should be at the beginning of the file.
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Fatalf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	off, err := r.Seek(25, io.SeekStart)
+	if err != nil {
+		t.Fatalf("Seek: %v", err)
+	}
+
+	if diff := cmp.Diff(int64(25), off); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(int64(25), r.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	// Negative value
+	off, err = r.Seek(-12, io.SeekCurrent)
+	if err != nil {
+		t.Fatalf("Seek: %v", err)
+	}
+
+	if diff := cmp.Diff(int64(13), off); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(int64(13), r.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	// Positive value
+	off, err = r.Seek(16, io.SeekCurrent)
+	if err != nil {
+		t.Fatalf("Seek: %v", err)
+	}
+
+	if diff := cmp.Diff(int64(29), off); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(int64(29), r.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+}
+
+func TestReader_Seek_SeekStart_negative(t *testing.T) {
+	t.Parallel()
+
+	f, err := os.Open("internal/testdata/test.txt.dz")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	r, err := NewReader(f)
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+
+	// r.offset should be at the beginning of the file.
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Fatalf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	off, err := r.Seek(-25, io.SeekStart)
+	if diff := cmp.Diff(int64(0), off); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(errNegativeOffset, err, cmpopts.EquateErrors()); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+}
+
+func TestReader_Seek_SeekCurrent_negative(t *testing.T) {
+	t.Parallel()
+
+	f, err := os.Open("internal/testdata/test.txt.dz")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	r, err := NewReader(f)
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+
+	// r.offset should be at the beginning of the file.
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Fatalf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	off, err := r.Seek(-25, io.SeekCurrent)
+	if diff := cmp.Diff(int64(0), off); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(errNegativeOffset, err, cmpopts.EquateErrors()); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+}
+
+func TestReader_Seek_SeekEnd(t *testing.T) {
+	t.Parallel()
+
+	f, err := os.Open("internal/testdata/test.txt.dz")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	r, err := NewReader(f)
+	if err != nil {
+		t.Fatalf("NewReader: %v", err)
+	}
+
+	// r.offset should be at the beginning of the file.
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Fatalf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	// SeekEnd
+	off, err := r.Seek(22, io.SeekEnd)
+	if diff := cmp.Diff(int64(0), off); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(errUnsupportedSeek, err, cmpopts.EquateErrors()); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+}
+
 func TestReader_ReadAt(t *testing.T) {
 	t.Parallel()
 
@@ -35,6 +249,11 @@ func TestReader_ReadAt(t *testing.T) {
 	r, err := NewReader(f)
 	if err != nil {
 		t.Fatalf("NewReader: %v", err)
+	}
+
+	// r.offset should be at the beginning of the file.
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Fatalf("r.offset (-want, +got):\n%s", diff)
 	}
 
 	buf := make([]byte, 10)
@@ -49,6 +268,11 @@ func TestReader_ReadAt(t *testing.T) {
 
 	if diff := cmp.Diff([]byte("0123456789"), buf); diff != "" {
 		t.Fatalf("ReadAt (-want, +got):\n%s", diff)
+	}
+
+	// r.offset should still be at the beginning of the file.
+	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
+		t.Fatalf("r.offset (-want, +got):\n%s", diff)
 	}
 }
 
