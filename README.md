@@ -4,7 +4,8 @@
 [![codecov](https://codecov.io/gh/ianlewis/go-dictzip/graph/badge.svg?token=LJVTOT3ZHE)](https://codecov.io/gh/ianlewis/go-dictzip)
 [![tests](https://github.com/ianlewis/go-dictzip/actions/workflows/pre-submit.units.yml/badge.svg)](https://github.com/ianlewis/go-dictzip/actions/workflows/pre-submit.units.yml)
 
-go-dictzip is a Go library for reading and writing [`dictzip`](https://linux.die.net/man/1/dictzip)
+go-dictzip is a Go library for reading and writing
+[`dictzip`](https://linux.die.net/man/1/dictzip) files.
 
 ## Status
 
