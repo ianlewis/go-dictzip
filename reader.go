@@ -65,8 +65,8 @@ type Reader struct {
 // NewReader will call Seek on the given reader to ensure that it is being read
 // from the beginning.
 //
-// It is the callers responsibility to call [Close] on the returned [Reader]
-// when done.
+// It is the callers responsibility to call [Reader.Close] on the returned
+// [Reader] when done.
 func NewReader(r io.ReadSeeker) (*Reader, error) {
 	fr := flate.NewReader(r)
 	z := &Reader{
