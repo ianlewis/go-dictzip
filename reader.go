@@ -99,7 +99,6 @@ func (z *Reader) Reset(r io.ReadSeeker) error {
 	z.chunkSize = chunkSize
 	z.offsets = offsets
 
-	//nolint:wrapcheck // error does not need to be wrapped
 	if err := z.z.Reset(r, nil); err != nil {
 		return fmt.Errorf("Reset: %w", err)
 	}
@@ -421,7 +420,7 @@ func readHeader(r io.Reader) (int64, int64, []int64, error) {
 
 	// calculate the offsets
 	offsets := make([]int64, len(sizes)+1)
-	offsets[0] = int64(startOffset)
+	offsets[0] = startOffset
 	for i := 0; i < len(sizes); i++ {
 		offsets[i+1] = offsets[i] + sizes[i]
 	}
