@@ -36,6 +36,7 @@ func TestReader_Read(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader: %v", err)
 	}
+	defer r.Close()
 
 	// r.offset should be at the beginning of the file.
 	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
@@ -93,6 +94,7 @@ func TestReader_Seek(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader: %v", err)
 	}
+	defer r.Close()
 
 	// r.offset should be at the beginning of the file.
 	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
@@ -153,6 +155,7 @@ func TestReader_Seek_SeekStart_negative(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader: %v", err)
 	}
+	defer r.Close()
 
 	// r.offset should be at the beginning of the file.
 	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
@@ -185,6 +188,7 @@ func TestReader_Seek_SeekCurrent_negative(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader: %v", err)
 	}
+	defer r.Close()
 
 	// r.offset should be at the beginning of the file.
 	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
@@ -217,6 +221,7 @@ func TestReader_Seek_SeekEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader: %v", err)
 	}
+	defer r.Close()
 
 	// r.offset should be at the beginning of the file.
 	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
@@ -250,6 +255,7 @@ func TestReader_ReadAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReader: %v", err)
 	}
+	defer r.Close()
 
 	// r.offset should be at the beginning of the file.
 	if diff := cmp.Diff(int64(0), r.offset); diff != "" {
