@@ -27,12 +27,7 @@ import (
 	"time"
 )
 
-var DefaultChunkSize = int64(1)
-
 var (
-	// ErrChecksum indicates an invalid gzip CRC-32 checksum.
-	ErrChecksum = errors.New("dictzip: invalid checksum")
-
 	// ErrHeader indicates an error with gzip header data.
 	ErrHeader = errors.New("dictzip: invalid header")
 
@@ -46,14 +41,6 @@ var (
 type readCloseResetter interface {
 	io.ReadCloser
 	flate.Resetter
-}
-
-// noEOF converts io.EOF into io.ErrUnexpectedEOF.
-func noEOF(err error) error {
-	if errors.Is(err, io.EOF) {
-		return io.ErrUnexpectedEOF
-	}
-	return err
 }
 
 // Extra encapsulates an EXTRA data field.
@@ -91,12 +78,12 @@ type Header struct {
 }
 
 // ChunkSize returns the dictzip uncompressed data chunk size.
-func (h Header) ChunkSize() int64 {
+func (h *Header) ChunkSize() int64 {
 	return h.chunkSize
 }
 
 // Offsets returns the dictzip offsets for compressed data chunks.
-func (h Header) Offsets() []int64 {
+func (h *Header) Offsets() []int64 {
 	return h.offsets
 }
 
@@ -247,10 +234,12 @@ func (z *Reader) readChunk(offset, size int64) ([]byte, error) {
 	// Check if we read less bytes than the start of our read.
 	readStart := chunkReadSize - size
 	if int64(n) < readStart {
+		//nolint:wrapcheck // we must return unwrapped io.EOF for io.Reader
 		return nil, err
 	}
 
-	return buf[chunkReadSize-size : n], err
+	//nolint:wrapcheck // we must return unwrapped io.EOF for io.Reader
+	return buf[readStart:n], err
 }
 
 // gzip Header Values
@@ -281,7 +270,6 @@ var (
 // bit 6 : reserved (ignored).
 // bit 7 : reserved	(ignored).
 var (
-	flgTEXT    = byte(1 << 0)
 	flgCRC     = byte(1 << 1)
 	flgEXTRA   = byte(1 << 2)
 	flgNAME    = byte(1 << 3)
@@ -493,7 +481,7 @@ func (z *Reader) readHeader() (int64, int64, []int64, error) {
 	// Read the NAME field.
 	if flg&flgNAME != 0 {
 		n, fname, err := z.readString()
-		startOffset += int64(n)
+		startOffset += n
 		if err != nil {
 			return startOffset, 0, nil, fmt.Errorf("reading NAME header: %w", err)
 		}
@@ -503,7 +491,7 @@ func (z *Reader) readHeader() (int64, int64, []int64, error) {
 	// Read the COMMENT field.
 	if flg&flgCOMMENT != 0 {
 		n, fcomment, err := z.readString()
-		startOffset += int64(n)
+		startOffset += n
 		if err != nil {
 			return startOffset, 0, nil, fmt.Errorf("reading comment header: %w", err)
 		}
@@ -519,6 +507,7 @@ func (z *Reader) readHeader() (int64, int64, []int64, error) {
 			return startOffset, 0, nil, fmt.Errorf("reading comment header: %w", err)
 		}
 		digest := binary.LittleEndian.Uint16(buf)
+		//nolint:gosec // we intentionally take the two lowest order bits of the CRC digest.
 		if digest != uint16(z.digest.Sum32()) {
 			return startOffset, 0, nil, fmt.Errorf("%w: bad CRC digest", ErrHeader)
 		}

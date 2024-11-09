@@ -24,73 +24,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-/*
-func makeDictzip(h Header, addCRC bool, chunkSize int64, level int, data []byte) {
-	buf := bytes.NewBuffer(make([]byte, 0, 1024))
-
-	zbuf := make([]byte, 10)
-	zbuf[0] = hdrGzipID1
-	zbuf[1] = hdrGzipID2
-	zbuf[2] = hdrDeflateCM
-
-	// FLG
-	if addCRC {
-		zbuf[3] |= flgCRC
-	}
-	zbuf[3] |= flgEXTRA
-	if h.Name != "" {
-		zbuf[3] |= flgNAME
-	}
-	if h.Comment != "" {
-		zbuf[3] |= flgCOMMENT
-	}
-
-	binary.LittleEndian.PutUint32(zbuf[4:8], uint32(h.ModTime.Unix()))
-	// NOTE: XFL is zero.
-	zbuf[10] = h.OS
-
-	if _, err := buf.Write(zbuf); err != nil {
-		panic(err)
-	}
-
-	chunks := make([][]byte, 0)
-	offsets := make([]int64, 0)
-	var offset int64
-	for i := int64(0); i < int64(len(data)); i += chunkSize {
-		j := i + chunkSize
-		if j > int64(len(data)) {
-			j = int64(len(data))
-		}
-		chunkData := data[i:j]
-
-		chunk := make([]byte, 0)
-		fw, err := flate.NewWriter(bytes.NewBuffer(chunk), level)
-		if err != nil {
-			panic(err)
-		}
-
-		_, err := fw.Write(chunkData)
-		if err != nil {
-			panic(err)
-		}
-		if err := fw.Flush(); err != nil {
-			panic(err)
-		}
-		if err := fw.Close(); err != nil {
-			panic(err)
-		}
-		newOffset
-		len(chunk)
-	}
-
-	// Write the RA extra field.
-	buf.WriteByte('R')
-	buf.WriteByte('A')
-
-	// Write the rest of extra fields.
-}
-*/
-
 func TestReader(t *testing.T) {
 	t.Parallel()
 
@@ -98,11 +31,14 @@ func TestReader(t *testing.T) {
 		name string
 		data []byte
 
-		fname    string
-		fcomment string
-		bytes    []byte
-		newErr   error
-		readErr  error
+		fname     string
+		fcomment  string
+		os        byte
+		chunkSize int64
+		offsets   []int64
+		bytes     []byte
+		newErr    error
+		readErr   error
 	}{
 		{
 			// NOTE: Curiously, dictzip will compress an empty file
@@ -135,8 +71,11 @@ func TestReader(t *testing.T) {
 				0x0, 0x0, 0x0, 0x0, // ISIZE
 			},
 
-			fname: "empty.txt",
-			bytes: []byte{},
+			fname:     "empty.txt",
+			bytes:     []byte{},
+			os:        0x3,
+			chunkSize: 58315,
+			offsets:   []int64{32},
 		},
 		{
 			name: "fcomment",
@@ -166,8 +105,11 @@ func TestReader(t *testing.T) {
 				0x0, 0x0, 0x0, 0x0, // CRC32
 				0x0, 0x0, 0x0, 0x0, // ISIZE
 			},
-			fcomment: "fcomment.txt",
-			bytes:    []byte{},
+			fcomment:  "fcomment.txt",
+			bytes:     []byte{},
+			os:        0x3,
+			chunkSize: 58315,
+			offsets:   []int64{35},
 		},
 		{
 			name: "with crc16",
@@ -196,7 +138,10 @@ func TestReader(t *testing.T) {
 				0x0, 0x0, 0x0, 0x0, // CRC32
 				0x0, 0x0, 0x0, 0x0, // ISIZE
 			},
-			bytes: []byte{},
+			bytes:     []byte{},
+			os:        0x3,
+			chunkSize: 58315,
+			offsets:   []int64{24},
 		},
 		{
 			name: "bad crc16",
@@ -250,6 +195,18 @@ func TestReader(t *testing.T) {
 
 			if diff := cmp.Diff(tc.fcomment, z.Comment); diff != "" {
 				t.Errorf("Name (-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.os, z.OS); diff != "" {
+				t.Errorf("OS (-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.chunkSize, z.ChunkSize()); diff != "" {
+				t.Errorf("ChunkSize (-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.offsets, z.Offsets()); diff != "" {
+				t.Errorf("Offsets (-want, +got):\n%s", diff)
 			}
 
 			b, err := io.ReadAll(z)
