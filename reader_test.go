@@ -34,6 +34,7 @@ func TestReader(t *testing.T) {
 		fname     string
 		fcomment  string
 		os        byte
+		extra     []byte
 		chunkSize int64
 		offsets   []int64
 		bytes     []byte
@@ -71,9 +72,16 @@ func TestReader(t *testing.T) {
 				0x0, 0x0, 0x0, 0x0, // ISIZE
 			},
 
-			fname:     "empty.txt",
-			bytes:     []byte{},
-			os:        0x3,
+			fname: "empty.txt",
+			bytes: []byte{},
+			os:    0x3,
+			extra: []byte{
+				0x52, 0x41, // 'R', 'A'
+				0x6, 0x0, // LEN // 6
+				0x1, 0x0, // VER // 1
+				0xcb, 0xe3, // CHLEN // 58315
+				0x0, 0x0, // CHCNT // 0
+			},
 			chunkSize: 58315,
 			offsets:   []int64{32},
 		},
@@ -105,9 +113,16 @@ func TestReader(t *testing.T) {
 				0x0, 0x0, 0x0, 0x0, // CRC32
 				0x0, 0x0, 0x0, 0x0, // ISIZE
 			},
-			fcomment:  "fcomment.txt",
-			bytes:     []byte{},
-			os:        0x3,
+			fcomment: "fcomment.txt",
+			bytes:    []byte{},
+			os:       0x3,
+			extra: []byte{
+				0x52, 0x41, // 'R', 'A'
+				0x6, 0x0, // LEN = 6
+				0x1, 0x0, // VER = 1
+				0xcb, 0xe3, // CHLEN = 58315
+				0x0, 0x0, // CHCNT = 0
+			},
 			chunkSize: 58315,
 			offsets:   []int64{35},
 		},
@@ -138,8 +153,15 @@ func TestReader(t *testing.T) {
 				0x0, 0x0, 0x0, 0x0, // CRC32
 				0x0, 0x0, 0x0, 0x0, // ISIZE
 			},
-			bytes:     []byte{},
-			os:        0x3,
+			bytes: []byte{},
+			os:    0x3,
+			extra: []byte{
+				0x52, 0x41, // 'R', 'A'
+				0x6, 0x0, // LEN // 6
+				0x1, 0x0, // VER // 1
+				0xcb, 0xe3, // CHLEN // 58315
+				0x0, 0x0, // CHCNT // 0
+			},
 			chunkSize: 58315,
 			offsets:   []int64{24},
 		},
@@ -198,6 +220,10 @@ func TestReader(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(tc.os, z.OS); diff != "" {
+				t.Errorf("OS (-want, +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.extra, z.Extra); diff != "" {
 				t.Errorf("OS (-want, +got):\n%s", diff)
 			}
 

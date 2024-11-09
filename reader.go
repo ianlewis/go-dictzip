@@ -43,13 +43,6 @@ type readCloseResetter interface {
 	flate.Resetter
 }
 
-// Extra encapsulates an EXTRA data field.
-type Extra struct {
-	SI1  byte
-	SI2  byte
-	Data []byte
-}
-
 // Header is the gzip file header.
 //
 // Strings must be UTF-8 encoded and may only contain Unicode code points
@@ -59,7 +52,7 @@ type Header struct {
 	Comment string
 
 	// Extra is the EXTRA data field.
-	Extra []*Extra
+	Extra []byte
 
 	// ModTime is the MTIME modification time field.
 	ModTime time.Time
@@ -328,6 +321,7 @@ func (z *Reader) readExtra() (int, int64, []int64, error) {
 	if err != nil {
 		return totalRead, 0, nil, fmt.Errorf("reading EXTRA: %w", err)
 	}
+	z.Extra = extra
 	z.digest.Write(extra)
 
 	// NOTE: The EXTRA field could could contain multiple sub-fields.
@@ -369,8 +363,6 @@ func (z *Reader) readExtra() (int, int64, []int64, error) {
 	if !foundRAField {
 		return totalRead, 0, nil, fmt.Errorf("%w: no RA EXTRA field", ErrHeader)
 	}
-
-	// TODO: Set z.Extra field.
 
 	return totalRead, chunkSize, sizes, nil
 }
