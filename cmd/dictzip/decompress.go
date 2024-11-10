@@ -46,10 +46,10 @@ func (d *decompress) Run() error {
 
 	flags := os.O_CREATE | os.O_WRONLY
 	if !d.force {
+		// Do not overwrite existing files unless --force is specified.
 		flags |= os.O_EXCL
 	}
-	// TODO(#13): carry over timestamp if d.NoName not set.
-	// TODO(#13): Restore original file name from the name header?
+
 	dst, err := os.OpenFile(newPath, flags, 0o644)
 	if err != nil {
 		return fmt.Errorf("opening target file: %w", err)
