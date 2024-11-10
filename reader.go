@@ -231,7 +231,7 @@ func (z *Reader) readChunk(offset, size int64) ([]byte, error) {
 	}
 
 	// Check if we read less bytes than the start of our read.
-	if int64(totalRead) < readStart {
+	if totalRead < readStart {
 		//nolint:wrapcheck // we must return unwrapped io.EOF for io.Reader
 		return nil, err
 	}

@@ -50,7 +50,7 @@ func (d *decompress) Run() error {
 	}
 	// TODO(#13): carry over timestamp if d.NoName not set.
 	// TODO(#13): Restore original file name from the name header?
-	dst, err := os.OpenFile(newPath, flags, 0644)
+	dst, err := os.OpenFile(newPath, flags, 0o644)
 	if err != nil {
 		return fmt.Errorf("opening target file: %w", err)
 	}

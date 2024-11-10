@@ -42,6 +42,7 @@ var ErrFlagParse = errors.New("parsing flags")
 // ErrUnsupported indicates a feature is unsupported.
 var ErrUnsupported = errors.New("unsupported")
 
+//nolint:gochecknoinits // init needed needed for global variable.
 func init() {
 	// Set the HelpFlag to a random name so that it isn't used. `cli` handles
 	// the flag with the root command such that it takes a command name argument
@@ -146,14 +147,17 @@ Copyright (c) Google LLC
 			}
 
 			for _, path := range c.Args().Slice() {
-				if c.Bool("decompress") {
-					d := decompress{
-						path:  path,
-						force: c.Bool("force"),
-					}
-					return d.Run()
-				} else {
-					return fmt.Errorf("%w: compression not supported yet.", ErrUnsupported)
+				if !c.Bool("decompress") {
+					return fmt.Errorf("%w: compression not supported yet", ErrUnsupported)
+				}
+
+				// decompress
+				d := decompress{
+					path:  path,
+					force: c.Bool("force"),
+				}
+				if err := d.Run(); err != nil {
+					return err
 				}
 			}
 

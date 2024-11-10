@@ -91,6 +91,10 @@ linters-settings:
 
           # This project.
           - "github.com/ianlewis/go-dictzip"
+
+          # Dependencies
+          - "github.com/urfave/cli/v2"
+          - "sigs.k8s.io/release-utils/version"
         deny:
           - pkg: "reflect"
             desc: Please don't use reflect package
@@ -107,7 +111,9 @@ linters-settings:
           - "github.com/ianlewis/go-dictzip"
 
           # Dependencies.
+          - "github.com/urfave/cli/v2"
           - "github.com/google/go-cmp/cmp"
+          - "sigs.k8s.io/release-utils/version"
         deny:
           - pkg: "reflect"
             desc: Use go-cmp instead.
