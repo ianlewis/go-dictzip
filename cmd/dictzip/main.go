@@ -20,6 +20,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// TODO(#13): Add release CI config for dictzip cmd.
+
 func main() {
 	// NOTE: Errors are generally handled in the app itself but Run could
 	// return errors if command line flags are incorrect etc. In this case neither
