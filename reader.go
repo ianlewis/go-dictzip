@@ -157,6 +157,7 @@ func (z *Reader) Close() error {
 func (z *Reader) Read(p []byte) (int, error) {
 	buf, err := z.readChunk(z.offset, int64(len(p)))
 	n := copy(p, buf)
+	z.offset += int64(n)
 	return n, err
 }
 
