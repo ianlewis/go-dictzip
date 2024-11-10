@@ -156,21 +156,15 @@ func (z *Reader) Close() error {
 // Read implements [io.Reader].
 func (z *Reader) Read(p []byte) (int, error) {
 	buf, err := z.readChunk(z.offset, int64(len(p)))
-	if err != nil {
-		return 0, err
-	}
 	n := copy(p, buf)
 	z.offset += int64(n)
-	return n, nil
+	return n, err
 }
 
 // ReadAt implements [io.ReaderAt.ReadAt].
 func (z *Reader) ReadAt(p []byte, off int64) (int, error) {
 	buf, err := z.readChunk(off, int64(len(p)))
-	if err != nil {
-		return 0, err
-	}
-	return copy(p, buf), nil
+	return copy(p, buf), err
 }
 
 // Seek implements [io.Seeker.Seek].
@@ -222,17 +216,28 @@ func (z *Reader) readChunk(offset, size int64) ([]byte, error) {
 	chunkReadSize := size + (offset - chunkFileOffset)
 
 	buf := make([]byte, chunkReadSize)
-	n, err := z.z.Read(buf)
+	totalRead := int64(0)
+	readStart := chunkReadSize - size
+	var err error
+
+	// Attempt to read the full amount requested.
+	// NOTE: It seems that the flate.Reader may read less than the given buffer
+	// size and still not return an error. This is different than most
+	// io.Reader implementations.
+	for err == nil && totalRead < size {
+		var n int
+		n, err = z.z.Read(buf[totalRead:])
+		totalRead += int64(n)
+	}
 
 	// Check if we read less bytes than the start of our read.
-	readStart := chunkReadSize - size
-	if int64(n) < readStart {
+	if totalRead < readStart {
 		//nolint:wrapcheck // we must return unwrapped io.EOF for io.Reader
 		return nil, err
 	}
 
 	//nolint:wrapcheck // we must return unwrapped io.EOF for io.Reader
-	return buf[readStart:n], err
+	return buf[readStart:totalRead], err
 }
 
 // gzip Header Values
