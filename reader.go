@@ -273,10 +273,10 @@ const (
 )
 
 const (
-	// hdrDictzipSI1 is the dictzip random access subfield ID value SI1
+	// hdrDictzipSI1 is the dictzip random access subfield ID value SI1.
 	hdrDictzipSI1 = byte('R')
 
-	// hdrDictzipSI2 is the dictzip random access subfield ID value SI2
+	// hdrDictzipSI2 is the dictzip random access subfield ID value SI2.
 	hdrDictzipSI2 = byte('A')
 )
 

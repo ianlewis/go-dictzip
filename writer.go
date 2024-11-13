@@ -229,6 +229,8 @@ func (z *Writer) writeHeader() error {
 	if z.ModTime.After(time.Unix(0, 0)) {
 		// Section 2.3.1, the zero value for MTIME means that the
 		// modified time is not set.
+		// NOTE: since this is a uint32 timestamp, it should work until 2106-02-07.
+		//nolint:gosec // We will allow overflow of modtime. It is not a security issue.
 		binary.LittleEndian.PutUint32(header[4:8], uint32(z.ModTime.Unix()))
 	}
 	if z.level == BestCompression {
@@ -301,14 +303,18 @@ func (z *Writer) writeExtra() error {
 	extra := make([]byte, 2+xlen)
 
 	// Set XLEN (length of extra excluding XLEN)
+	//nolint:gosec // xlen max value is checked above.
 	binary.LittleEndian.PutUint16(extra[0:2], uint16(xlen))
 
 	// Write the RA subfield.
 	extra[2] = hdrDictzipSI1
 	extra[3] = hdrDictzipSI2
+	//nolint:gosec // raLen max value is checked above.
 	binary.LittleEndian.PutUint16(extra[4:6], uint16(raLen)) // LEN
 	binary.LittleEndian.PutUint16(extra[6:8], uint16(1))     // VER
+	//nolint:gosec // chlen max value is checked above.
 	binary.LittleEndian.PutUint16(extra[8:10], uint16(chlen))
+	// NOTE: chcnt max value is checked above. gosec doesn't seem to care about this.
 	binary.LittleEndian.PutUint16(extra[10:12], uint16(chcnt))
 
 	i := 12
@@ -316,6 +322,7 @@ func (z *Writer) writeExtra() error {
 		if chSize > math.MaxUint16 {
 			return fmt.Errorf("%w: chunk size exceeded: %v", ErrHeader, chSize)
 		}
+		//nolint:gosec // chSize max value is checked above.
 		binary.LittleEndian.PutUint16(extra[i:i+2], uint16(chSize))
 		i += 2
 	}

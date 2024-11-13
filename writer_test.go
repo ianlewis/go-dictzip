@@ -25,6 +25,30 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
+func verifyGzip(t *testing.T, compressed *bytes.Buffer, writes [][]byte) {
+	t.Helper()
+
+	// Verify that the output is gzip compatible.
+	gr, err := gzip.NewReader(compressed)
+	if err != nil {
+		t.Fatalf("gzip.NewReader: %v", err)
+	}
+	rb, err := io.ReadAll(gr)
+	if err != nil {
+		t.Fatalf("io.ReadAll: %v", err)
+	}
+
+	// Flatten the input writes
+	flattened := []byte{}
+	for _, b := range writes {
+		flattened = append(flattened, b...)
+	}
+
+	if diff := cmp.Diff(flattened, rb); diff != "" {
+		t.Errorf("gzip.Read (-want, +got):\n%s", diff)
+	}
+}
+
 func TestWriter(t *testing.T) {
 	t.Parallel()
 
@@ -400,25 +424,7 @@ func TestWriter(t *testing.T) {
 				t.Errorf("data (-want, +got):\n%s", diff)
 			}
 
-			// Verify that the output is gzip compatible.
-			gr, err := gzip.NewReader(&buf)
-			if err != nil {
-				t.Fatalf("gzip.NewReader: %v", err)
-			}
-			rb, err := io.ReadAll(gr)
-			if err != nil {
-				t.Fatalf("io.ReadAll: %v", err)
-			}
-
-			// Flatten the input data
-			flattened := []byte{}
-			for _, data := range tc.data {
-				flattened = append(flattened, data...)
-			}
-
-			if diff := cmp.Diff(flattened, rb); diff != "" {
-				t.Errorf("gzip.Read (-want, +got):\n%s", diff)
-			}
+			verifyGzip(t, &buf, tc.data)
 		})
 	}
 }
