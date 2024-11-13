@@ -35,7 +35,7 @@ func TestReader(t *testing.T) {
 		fcomment  string
 		os        byte
 		extra     []byte
-		chunkSize int64
+		chunkSize int
 		offsets   []int64
 		bytes     []byte
 		newErr    error
@@ -231,7 +231,7 @@ func TestReader(t *testing.T) {
 				t.Errorf("ChunkSize (-want, +got):\n%s", diff)
 			}
 
-			if diff := cmp.Diff(tc.offsets, z.Offsets()); diff != "" {
+			if diff := cmp.Diff(tc.offsets, z.offsets); diff != "" {
 				t.Errorf("Offsets (-want, +got):\n%s", diff)
 			}
 
@@ -241,7 +241,7 @@ func TestReader(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(tc.bytes, b); diff != "" {
-				t.Fatalf("ReadAll (-want, +got):\n%s", diff)
+				t.Errorf("ReadAll (-want, +got):\n%s", diff)
 			}
 		})
 	}

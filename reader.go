@@ -28,12 +28,77 @@ import (
 )
 
 var (
-	// ErrHeader indicates an error with gzip header data.
-	ErrHeader = errors.New("dictzip: invalid header")
+	// errDictzip is the base error for all go-dictzip errors.
+	errDictzip = errors.New("dictzip")
 
-	errUnsupportedSeek = errors.New("dictzip: unsupported seek mode")
-	errNegativeOffset  = errors.New("dictzip: negative offset")
+	// ErrHeader indicates an error with gzip header data.
+	ErrHeader = fmt.Errorf("%w: invalid header", errDictzip)
+
+	errUnsupportedSeek = fmt.Errorf("%w: unsupported seek mode", errDictzip)
+	errNegativeOffset  = fmt.Errorf("%w: negative offset", errDictzip)
 )
+
+const (
+	// OSFAT represents an FAT filesystem OS (MS-DOS, OS/2, NT/Win32).
+	OSFAT byte = iota
+
+	// OSAmiga represents the Amiga OS.
+	OSAmiga
+
+	// OSVMS represents VMS (or OpenVMS).
+	OSVMS
+
+	// OSUnix represents Unix operating systems.
+	OSUnix
+
+	// OSVM represents VM/CMS.
+	OSVM
+
+	// OSAtari represents Atari TOS.
+	OSAtari
+
+	// OSHPFS represents HPFS filesystem (OS/2, NT).
+	OSHPFS
+
+	// OSMacintosh represents the Macintosh operating system.
+	OSMacintosh
+
+	// OSZSystem represents Z-System.
+	OSZSystem
+
+	// OSCPM represents the CP/M operating system.
+	OSCPM
+
+	// OSTOPS20 represents the TOPS-20 operating system.
+	OSTOPS20
+
+	// OSNTFS represents an NTFS filesystem OS (NT).
+	OSNTFS
+
+	// OSQDOS represents QDOS.
+	OSQDOS
+
+	// OSAcorn represents Acorn RISCOS.
+	OSAcorn
+
+	// OSUnknown represents an unknown operating system.
+	OSUnknown = 0xff
+)
+
+const (
+	// XFLSlowest indicates that the compressor used maximum compression (e.g. slowest algorithm).
+	XFLSlowest byte = 0x2
+
+	// XFLFastest indicates that the compressor used the fastest algorithm.
+	XFLFastest byte = 0x4
+)
+
+func headerErr(err error) error {
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return fmt.Errorf("%w: %w", ErrHeader, err)
+	}
+	return fmt.Errorf("%w: %w", errDictzip, err)
+}
 
 // readCloseResetter is an interface that wraps the io.ReadCloser and
 // flate.Resetter interfaces. This is used because the flate.NewReader
@@ -63,21 +128,21 @@ type Header struct {
 	// OS is the OS header field.
 	OS byte
 
-	// ChunkSize is the size of uncompressed dictzip chunks.
-	chunkSize int64
+	// chunkSize is the size of uncompressed dictzip chunks.
+	chunkSize int
 
-	// Offsets is a list of offsets to the compressed chunks in the file.
-	offsets []int64
+	// sizes is a list of sizes of the compressed chunks in the file.
+	sizes []int
 }
 
 // ChunkSize returns the dictzip uncompressed data chunk size.
-func (h *Header) ChunkSize() int64 {
+func (h *Header) ChunkSize() int {
 	return h.chunkSize
 }
 
-// Offsets returns the dictzip offsets for compressed data chunks.
-func (h *Header) Offsets() []int64 {
-	return h.offsets
+// Offsets returns the dictzip sizes for the compressed data chunks.
+func (h *Header) Sizes() []int {
+	return h.sizes
 }
 
 // Reader implements [io.Reader] and [io.ReaderAt]. It provides random access
@@ -92,6 +157,9 @@ type Reader struct {
 
 	// offset is the offset into the uncompressed data.
 	offset int64
+
+	// offsets is a list of offsets to the compressed chunks in the file.
+	offsets []int64
 
 	// digest is the CRC-32 digest (IEEE polynomial).
 	// See RFC-1952 Section 2.3.1.
@@ -129,7 +197,7 @@ func (z *Reader) Reset(r io.ReadSeeker) error {
 	z.r = r
 	z.offset = 0
 	if _, err := r.Seek(z.offset, io.SeekStart); err != nil {
-		return fmt.Errorf("Seek: %w", err)
+		return fmt.Errorf("%w: Seek: %w", errDictzip, err)
 	}
 
 	// Read the first 10 bytes of the header.
@@ -141,7 +209,7 @@ func (z *Reader) Reset(r io.ReadSeeker) error {
 	z.offsets = offsets
 
 	if err := z.z.Reset(r, nil); err != nil {
-		return fmt.Errorf("Reset: %w", err)
+		return fmt.Errorf("%w: Reset: %w", errDictzip, err)
 	}
 
 	return nil
@@ -155,7 +223,7 @@ func (z *Reader) Close() error {
 
 // Read implements [io.Reader].
 func (z *Reader) Read(p []byte) (int, error) {
-	buf, err := z.readChunk(z.offset, int64(len(p)))
+	buf, err := z.readChunk(z.offset, len(p))
 	n := copy(p, buf)
 	z.offset += int64(n)
 	return n, err
@@ -163,7 +231,7 @@ func (z *Reader) Read(p []byte) (int, error) {
 
 // ReadAt implements [io.ReaderAt.ReadAt].
 func (z *Reader) ReadAt(p []byte, off int64) (int, error) {
-	buf, err := z.readChunk(off, int64(len(p)))
+	buf, err := z.readChunk(off, len(p))
 	return copy(p, buf), err
 }
 
@@ -194,8 +262,8 @@ func (z *Reader) Seek(offset int64, whence int) (int64, error) {
 
 // readChunk reads and decompresses data of size at offset. It returns the
 // number of bytes advanced in the underlying reader and bytes read.
-func (z *Reader) readChunk(offset, size int64) ([]byte, error) {
-	chunkNum := offset / z.chunkSize
+func (z *Reader) readChunk(offset int64, size int) ([]byte, error) {
+	chunkNum := offset / int64(z.chunkSize)
 	chunkOffset := z.offsets[chunkNum]
 
 	if _, err := z.r.Seek(chunkOffset, io.SeekStart); err != nil {
@@ -208,23 +276,24 @@ func (z *Reader) readChunk(offset, size int64) ([]byte, error) {
 	}
 
 	// The offset into the file at the start of the chunk.
-	chunkFileOffset := chunkNum * z.chunkSize
+	chunkFileOffset := chunkNum * int64(z.chunkSize)
 
 	// The size to read from the chunk. Includes some amount of data
 	// (offset - chunkFileOffset bytes) at the beginning of the chunk that will
 	// be discarded.
-	chunkReadSize := size + (offset - chunkFileOffset)
+	int64size := int64(size)
+	chunkReadSize := int64size + (offset - chunkFileOffset)
 
 	buf := make([]byte, chunkReadSize)
 	totalRead := int64(0)
-	readStart := chunkReadSize - size
+	readStart := chunkReadSize - int64size
 	var err error
 
 	// Attempt to read the full amount requested.
 	// NOTE: It seems that the flate.Reader may read less than the given buffer
 	// size and still not return an error. This is different than most
 	// io.Reader implementations.
-	for err == nil && totalRead < size {
+	for err == nil && totalRead < int64size {
 		var n int
 		n, err = z.z.Read(buf[totalRead:])
 		totalRead += int64(n)
@@ -247,15 +316,23 @@ func (z *Reader) readChunk(offset, size int64) ([]byte, error) {
 |ID1|ID2|CM |FLG|     MTIME     |XFL|OS |
 +---+---+---+---+---+---+---+---+---+---+
 */
-var (
+const (
 	// hdrGzipID1 is the gzip header value for ID1
-	hdrGzipID1 = byte(0x1f)
+	hdrGzipID1 byte = 0x1f
 
 	// hdrGzipID2 is the gzip header value for ID2
-	hdrGzipID2 = byte(0x8b)
+	hdrGzipID2 byte = 0x8b
 
 	// hdrDeflateCM is the deflate CM (Compression method).
-	hdrDeflateCM = byte(0x08)
+	hdrDeflateCM byte = 0x08
+)
+
+const (
+	// hdrDictzipSI1 is the dictzip random access subfield ID value SI1.
+	hdrDictzipSI1 = byte('R')
+
+	// hdrDictzipSI2 is the dictzip random access subfield ID value SI2.
+	hdrDictzipSI2 = byte('A')
 )
 
 // FLG (Flags).
@@ -267,7 +344,7 @@ var (
 // bit 5 : reserved (ignored).
 // bit 6 : reserved (ignored).
 // bit 7 : reserved	(ignored).
-var (
+const (
 	flgCRC     = byte(1 << 1)
 	flgEXTRA   = byte(1 << 2)
 	flgNAME    = byte(1 << 3)
@@ -279,7 +356,7 @@ func (z *Reader) readFlg() (int, byte, error) {
 	head := make([]byte, 10)
 	n, err := io.ReadFull(z.r, head)
 	if err != nil {
-		return n, 0, fmt.Errorf("reading dictzip header: %w", err)
+		return n, 0, headerErr(fmt.Errorf("reading header: %w", err))
 	}
 
 	if head[0] != hdrGzipID1 || head[1] != hdrGzipID2 {
@@ -304,10 +381,10 @@ func (z *Reader) readFlg() (int, byte, error) {
 	return n, head[3], nil
 }
 
-// readExtra parses the EXTRA header. It returns dictzip chunk size before //
+// readExtra parses the EXTRA header. It returns dictzip chunk size before
 // compression (before compression all chunks have equal size), and a list of
 // chunk sizes after compression.
-func (z *Reader) readExtra() (int, int64, []int64, error) {
+func (z *Reader) readExtra() (int, int, []int, error) {
 	var totalRead int
 
 	// FEXTRA
@@ -315,7 +392,7 @@ func (z *Reader) readExtra() (int, int64, []int64, error) {
 	n, err := io.ReadFull(z.r, buf)
 	totalRead += n
 	if err != nil {
-		return totalRead, 0, nil, fmt.Errorf("EXTRA XLEN: %w", err)
+		return totalRead, 0, nil, headerErr(fmt.Errorf("EXTRA XLEN: %w", err))
 	}
 	xlen := binary.LittleEndian.Uint16(buf)
 	z.digest.Write(buf)
@@ -324,14 +401,14 @@ func (z *Reader) readExtra() (int, int64, []int64, error) {
 	n, err = io.ReadFull(z.r, extra)
 	totalRead += n
 	if err != nil {
-		return totalRead, 0, nil, fmt.Errorf("reading EXTRA: %w", err)
+		return totalRead, 0, nil, headerErr(fmt.Errorf("reading EXTRA: %w", err))
 	}
 	z.Extra = extra
 	z.digest.Write(extra)
 
 	// NOTE: The EXTRA field could could contain multiple sub-fields.
-	var chunkSize int64
-	var sizes []int64
+	var chunkSize int
+	var sizes []int
 
 	er := bytes.NewReader(extra)
 	var foundRAField bool
@@ -340,7 +417,7 @@ func (z *Reader) readExtra() (int, int64, []int64, error) {
 		buf = make([]byte, 4)
 		_, err = io.ReadFull(er, buf)
 		if err != nil {
-			return totalRead, 0, nil, fmt.Errorf("reading EXTRA: %w", err)
+			return totalRead, 0, nil, headerErr(fmt.Errorf("reading EXTRA: %w", err))
 		}
 
 		si1 := buf[0]
@@ -351,11 +428,11 @@ func (z *Reader) readExtra() (int, int64, []int64, error) {
 		extraBuf := make([]byte, extraLen)
 		_, err = io.ReadFull(er, extraBuf)
 		if err != nil {
-			return totalRead, 0, nil, fmt.Errorf("reading EXTRA: %w", err)
+			return totalRead, 0, nil, headerErr(fmt.Errorf("reading EXTRA: %w", err))
 		}
 
 		// This is the dictzip 'R'andom 'A'ccess data field.
-		if si1 == 'R' && si2 == 'A' {
+		if si1 == hdrDictzipSI1 && si2 == hdrDictzipSI2 {
 			var err error
 			chunkSize, sizes, err = readExtraSizes(bytes.NewReader(extraBuf))
 			if err != nil {
@@ -374,14 +451,14 @@ func (z *Reader) readExtra() (int, int64, []int64, error) {
 
 // readExtraSizes reads the dictzip uncompressed chunk size and compressed
 // chunk sizes from the EXTRA field data.
-func readExtraSizes(r io.Reader) (int64, []int64, error) {
+func readExtraSizes(r io.Reader) (int, []int, error) {
 	var buf []byte
 
 	// Read VER
 	buf = make([]byte, 2)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
-		return 0, nil, fmt.Errorf("reading VER: %w", err)
+		return 0, nil, headerErr(fmt.Errorf("VER: %w", err))
 	}
 	ver := binary.LittleEndian.Uint16(buf)
 
@@ -393,7 +470,7 @@ func readExtraSizes(r io.Reader) (int64, []int64, error) {
 	buf = make([]byte, 2)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
-		return 0, nil, fmt.Errorf("reading CHLEN: %w", err)
+		return 0, nil, headerErr(fmt.Errorf("CHLEN: %w", err))
 	}
 	chlen := binary.LittleEndian.Uint16(buf)
 
@@ -401,24 +478,25 @@ func readExtraSizes(r io.Reader) (int64, []int64, error) {
 	buf = make([]byte, 2)
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
-		return 0, nil, fmt.Errorf("reading CHLEN: %w", err)
+		return 0, nil, headerErr(fmt.Errorf("CHCNT: %w", err))
 	}
 	chcnt := binary.LittleEndian.Uint16(buf)
 
-	var offsets []int64
+	// Read Sizes
+	var sizes []int
 	for i := 0; i < int(chcnt); i++ {
 		buf = make([]byte, 2)
 		_, err = io.ReadFull(r, buf)
 		if err != nil {
-			return 0, nil, fmt.Errorf("reading CHLEN: %w", err)
+			return 0, nil, headerErr(fmt.Errorf("chunk sizes: %w", err))
 		}
-		offsets = append(offsets, int64(binary.LittleEndian.Uint16(buf)))
+		sizes = append(sizes, int(binary.LittleEndian.Uint16(buf)))
 	}
 
-	return int64(chlen), offsets, nil
+	return int(chlen), sizes, nil
 }
 
-// readString reads a null terminated string from r.
+// readString reads a null terminated string from z.r.
 func (z *Reader) readString() (int64, string, error) {
 	var totalRead int64
 	var b strings.Builder
@@ -433,7 +511,7 @@ func (z *Reader) readString() (int64, string, error) {
 		n, err := io.ReadFull(z.r, buf)
 		totalRead += int64(n)
 		if err != nil {
-			return totalRead, "", fmt.Errorf("reading name header: %w", err)
+			return totalRead, "", headerErr(fmt.Errorf("string header: %w", err))
 		}
 		strBuf[i] = buf[0]
 
@@ -453,9 +531,9 @@ func (z *Reader) readString() (int64, string, error) {
 
 // readHeader reads the gzip header for dictzip specific headers and returns
 // offsets and blocksize used for random access.
-func (z *Reader) readHeader() (int64, int64, []int64, error) {
-	var chunkSize int64
-	var sizes []int64
+func (z *Reader) readHeader() (int64, int, []int64, error) {
+	var chunkSize int
+	var sizes []int
 	var startOffset int64
 
 	n, flg, err := z.readFlg()
@@ -474,13 +552,14 @@ func (z *Reader) readHeader() (int64, int64, []int64, error) {
 	if err != nil {
 		return startOffset, 0, nil, err
 	}
+	z.sizes = sizes
 
 	// Read the NAME field.
 	if flg&flgNAME != 0 {
 		n, fname, err := z.readString()
 		startOffset += n
 		if err != nil {
-			return startOffset, 0, nil, fmt.Errorf("reading NAME header: %w", err)
+			return startOffset, 0, nil, err
 		}
 		z.Name = fname
 	}
@@ -490,7 +569,7 @@ func (z *Reader) readHeader() (int64, int64, []int64, error) {
 		n, fcomment, err := z.readString()
 		startOffset += n
 		if err != nil {
-			return startOffset, 0, nil, fmt.Errorf("reading comment header: %w", err)
+			return startOffset, 0, nil, err
 		}
 		z.Comment = fcomment
 	}
@@ -501,12 +580,12 @@ func (z *Reader) readHeader() (int64, int64, []int64, error) {
 		n, err := io.ReadFull(z.r, buf)
 		startOffset += int64(n)
 		if err != nil {
-			return startOffset, 0, nil, fmt.Errorf("reading comment header: %w", err)
+			return startOffset, 0, nil, headerErr(fmt.Errorf("CRC-16: %w", err))
 		}
 		digest := binary.LittleEndian.Uint16(buf)
 		//nolint:gosec // we intentionally take the two lowest order bits of the CRC digest.
 		if digest != uint16(z.digest.Sum32()) {
-			return startOffset, 0, nil, fmt.Errorf("%w: bad CRC digest", ErrHeader)
+			return startOffset, 0, nil, fmt.Errorf("%w: bad CRC-16 digest", ErrHeader)
 		}
 	}
 
@@ -514,7 +593,7 @@ func (z *Reader) readHeader() (int64, int64, []int64, error) {
 	offsets := make([]int64, len(sizes)+1)
 	offsets[0] = startOffset
 	for i := 0; i < len(sizes); i++ {
-		offsets[i+1] = offsets[i] + sizes[i]
+		offsets[i+1] = offsets[i] + int64(sizes[i])
 	}
 
 	return startOffset, chunkSize, offsets, nil
