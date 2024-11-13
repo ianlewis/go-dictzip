@@ -38,6 +38,61 @@ var (
 	errNegativeOffset  = fmt.Errorf("%w: negative offset", errDictzip)
 )
 
+const (
+	// OSFAT represents an FAT filesystem OS (MS-DOS, OS/2, NT/Win32).
+	OSFAT byte = iota
+
+	// OSAmiga represents the Amiga OS.
+	OSAmiga
+
+	// OSVMS represents VMS (or OpenVMS).
+	OSVMS
+
+	// OSUnix represents Unix operating systems.
+	OSUnix
+
+	// OSVM represents VM/CMS.
+	OSVM
+
+	// OSAtari represents Atari TOS.
+	OSAtari
+
+	// OSHPFS represents HPFS filesystem (OS/2, NT).
+	OSHPFS
+
+	// OSMacintosh represents the Macintosh operating system.
+	OSMacintosh
+
+	// OSZSystem represents Z-System.
+	OSZSystem
+
+	// OSCPM represents the CP/M operating system.
+	OSCPM
+
+	// OSTOPS20 represents the TOPS-20 operating system.
+	OSTOPS20
+
+	// OSNTFS represents an NTFS filesystem OS (NT).
+	OSNTFS
+
+	// OSQDOS represents QDOS.
+	OSQDOS
+
+	// OSAcorn represents Acorn RISCOS.
+	OSAcorn
+
+	// OSUnknown represents an unknown operating system.
+	OSUnknown = 0xff
+)
+
+const (
+	// XFLSlowest indicates that the compressor used maximum compression (e.g. slowest algorithm).
+	XFLSlowest byte = 0x2
+
+	// XFLFastest indicates that the compressor used the fastest algorithm.
+	XFLFastest byte = 0x4
+)
+
 func headerErr(err error) error {
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return fmt.Errorf("%w: %w", ErrHeader, err)
@@ -263,13 +318,13 @@ func (z *Reader) readChunk(offset int64, size int) ([]byte, error) {
 */
 const (
 	// hdrGzipID1 is the gzip header value for ID1
-	hdrGzipID1 = byte(0x1f)
+	hdrGzipID1 byte = 0x1f
 
 	// hdrGzipID2 is the gzip header value for ID2
-	hdrGzipID2 = byte(0x8b)
+	hdrGzipID2 byte = 0x8b
 
 	// hdrDeflateCM is the deflate CM (Compression method).
-	hdrDeflateCM = byte(0x08)
+	hdrDeflateCM byte = 0x08
 )
 
 const (

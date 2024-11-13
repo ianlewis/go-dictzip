@@ -87,14 +87,18 @@ type Writer struct {
 	closed bool
 }
 
-// NewWriter initializes a new dictzip Writer with the default compression
+// NewWriter initializes a new dictzip [Writer] with the default compression
 // level and chunk size.
+//
+// The OS Header is always set to [OSUnknown] (0xff) by default.
 func NewWriter(w io.Writer) (*Writer, error) {
 	return NewWriterLevel(w, DefaultCompression, DefaultChunkSize)
 }
 
-// NewWriterLevel initializes a new dictzip Writer with a compression level and
-// chunk size.
+// NewWriterLevel initializes a new dictzip [Writer] with the given compression
+// level and chunk size.
+//
+// The OS Header is always set to [OSUnknown] (0xff) by default.
 func NewWriterLevel(w io.Writer, level, chunkSize int) (*Writer, error) {
 	tmp, err := os.CreateTemp("", "dictzip.*")
 	if err != nil {
@@ -109,6 +113,9 @@ func NewWriterLevel(w io.Writer, level, chunkSize int) (*Writer, error) {
 
 	digest := crc32.NewIEEE()
 	z := Writer{
+		Header: Header{
+			OS: OSUnknown,
+		},
 		tmp:      tmp,
 		hasData:  false,
 		chunkBuf: &buf,

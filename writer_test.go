@@ -75,7 +75,7 @@ func TestWriter(t *testing.T) {
 			name: "empty file with name",
 
 			fname:     "empty.txt",
-			os:        0x3,
+			os:        OSUnknown,
 			chunkSize: DefaultChunkSize,
 			level:     DefaultCompression,
 			data:      nil,
@@ -87,8 +87,8 @@ func TestWriter(t *testing.T) {
 				hdrDeflateCM,
 				flgEXTRA | flgNAME,     // FLG
 				0x00, 0x00, 0x00, 0x00, // MTIME
-				0x0, // XFL
-				0x3, // OS
+				0x0,       // XFL
+				OSUnknown, // OS
 
 				// EXTRA
 				0xa, 0x0, // XLEN // 10
@@ -113,7 +113,7 @@ func TestWriter(t *testing.T) {
 			name: "empty file with comment",
 
 			fcomment:  "fcomment.txt",
-			os:        0x3,
+			os:        OSUnknown,
 			chunkSize: DefaultChunkSize,
 			level:     DefaultCompression,
 			data:      nil,
@@ -125,8 +125,8 @@ func TestWriter(t *testing.T) {
 				hdrDeflateCM,
 				flgEXTRA | flgCOMMENT,  // FLG
 				0x00, 0x00, 0x00, 0x00, // MTIME
-				0x0, // XFL
-				0x3, // OS
+				0x0,       // XFL
+				OSUnknown, // OS
 
 				// EXTRA
 				0xa, 0x0, // XLEN // 10
@@ -150,7 +150,7 @@ func TestWriter(t *testing.T) {
 			//       but dictunzip will throw an error for empty files.
 			name: "empty file with extra",
 
-			os: 0x3,
+			os: OSUnknown,
 			extra: []byte{
 				'A', 'Z', // SI
 				0x3, 0x0, // LEN
@@ -167,8 +167,8 @@ func TestWriter(t *testing.T) {
 				hdrDeflateCM,
 				flgEXTRA,               // FLG
 				0x00, 0x00, 0x00, 0x00, // MTIME
-				0x0, // XFL
-				0x3, // OS
+				0x0,       // XFL
+				OSUnknown, // OS
 
 				// EXTRA
 				0x11, 0x0, // XLEN // 17
@@ -192,7 +192,7 @@ func TestWriter(t *testing.T) {
 		{
 			name: "single chunk single write",
 
-			os:        0x3,
+			os:        OSUnknown,
 			chunkSize: DefaultChunkSize,
 			level:     DefaultCompression,
 			data: [][]byte{
@@ -206,8 +206,8 @@ func TestWriter(t *testing.T) {
 				hdrDeflateCM,
 				flgEXTRA,               // FLG
 				0x00, 0x00, 0x00, 0x00, // MTIME
-				0x0, // XFL
-				0x3, // OS
+				0x0,       // XFL
+				OSUnknown, // OS
 
 				// EXTRA
 				0xc, 0x0, // XLEN // 12
@@ -233,7 +233,7 @@ func TestWriter(t *testing.T) {
 		{
 			name: "multi-chunk single write exact",
 
-			os:        0x3,
+			os:        OSUnknown,
 			chunkSize: 6,
 			level:     DefaultCompression,
 			data: [][]byte{
@@ -247,8 +247,8 @@ func TestWriter(t *testing.T) {
 				hdrDeflateCM,
 				flgEXTRA,               // FLG
 				0x00, 0x00, 0x00, 0x00, // MTIME
-				0x0, // XFL
-				0x3, // OS
+				0x0,       // XFL
+				OSUnknown, // OS
 
 				// EXTRA
 				0x12, 0x0, // XLEN // 18
@@ -279,7 +279,7 @@ func TestWriter(t *testing.T) {
 		{
 			name: "multi-chunk single write non-exact",
 
-			os:        0x3,
+			os:        OSUnknown,
 			chunkSize: 6,
 			level:     DefaultCompression,
 			data: [][]byte{
@@ -293,8 +293,8 @@ func TestWriter(t *testing.T) {
 				hdrDeflateCM,
 				flgEXTRA,               // FLG
 				0x00, 0x00, 0x00, 0x00, // MTIME
-				0x0, // XFL
-				0x3, // OS
+				0x0,       // XFL
+				OSUnknown, // OS
 
 				// EXTRA
 				0x12, 0x0, // XLEN // 18
@@ -325,7 +325,7 @@ func TestWriter(t *testing.T) {
 		{
 			name: "multi-chunk multi-write",
 
-			os:        0x3,
+			os:        OSUnknown,
 			chunkSize: 6,
 			level:     DefaultCompression,
 			data: [][]byte{
@@ -343,8 +343,8 @@ func TestWriter(t *testing.T) {
 				hdrDeflateCM,
 				flgEXTRA,               // FLG
 				0x00, 0x00, 0x00, 0x00, // MTIME
-				0x0, // XFL
-				0x3, // OS
+				0x0,       // XFL
+				OSUnknown, // OS
 
 				// EXTRA
 				0x12, 0x0, // XLEN // 18
