@@ -190,6 +190,109 @@ func TestWriter(t *testing.T) {
 			},
 		},
 		{
+			// NOTE: Curiously, dictzip will compress an empty file
+			//       but dictunzip will throw an error for empty files.
+			name: "empty file with modtime",
+
+			os:        OSUnknown,
+			modtime:   time.Date(1981, 10, 29, 10, 1, 0, 0, time.UTC),
+			chunkSize: DefaultChunkSize,
+			level:     DefaultCompression,
+			data:      nil,
+
+			bytes: []byte{
+				// Header
+				hdrGzipID1,
+				hdrGzipID2,
+				hdrDeflateCM,
+				flgEXTRA,               // FLG
+				0x5c, 0x8b, 0x3e, 0x16, // MTIME // 373197660
+				0x0,       // XFL
+				OSUnknown, // OS
+
+				// EXTRA
+				0xa, 0x0, // XLEN // 10
+				0x52, 0x41, // 'R', 'A'
+				0x6, 0x0, // LEN // 6
+				0x1, 0x0, // VER // 1
+				0xff, 0xff, // CHLEN // 65535
+				0x0, 0x0, // CHCNT // 0
+
+				0x01, 0x00, 0x00, 0xff, 0xff, // Empty deflate data (sync/end marker)
+
+				0x0, 0x0, 0x0, 0x0, // CRC32
+				0x0, 0x0, 0x0, 0x0, // ISIZE
+			},
+		},
+		{
+			// NOTE: Curiously, dictzip will compress an empty file
+			//       but dictunzip will throw an error for empty files.
+			name: "empty file with os",
+
+			os:        OSUnix,
+			chunkSize: DefaultChunkSize,
+			level:     DefaultCompression,
+			data:      nil,
+
+			bytes: []byte{
+				// Header
+				hdrGzipID1,
+				hdrGzipID2,
+				hdrDeflateCM,
+				flgEXTRA,               // FLG
+				0x00, 0x00, 0x00, 0x00, // MTIME
+				0x0,    // XFL
+				OSUnix, // OS
+
+				// EXTRA
+				0xa, 0x0, // XLEN // 10
+				0x52, 0x41, // 'R', 'A'
+				0x6, 0x0, // LEN // 6
+				0x1, 0x0, // VER // 1
+				0xff, 0xff, // CHLEN // 65535
+				0x0, 0x0, // CHCNT // 0
+
+				0x01, 0x00, 0x00, 0xff, 0xff, // Empty deflate data (sync/end marker)
+
+				0x0, 0x0, 0x0, 0x0, // CRC32
+				0x0, 0x0, 0x0, 0x0, // ISIZE
+			},
+		},
+		{
+			// NOTE: Curiously, dictzip will compress an empty file
+			//       but dictunzip will throw an error for empty files.
+			name: "empty file with xfl",
+
+			os:        OSUnknown,
+			chunkSize: DefaultChunkSize,
+			level:     BestSpeed,
+			data:      nil,
+
+			bytes: []byte{
+				// Header
+				hdrGzipID1,
+				hdrGzipID2,
+				hdrDeflateCM,
+				flgEXTRA,               // FLG
+				0x00, 0x00, 0x00, 0x00, // MTIME
+				XFLFastest, // XFL
+				OSUnknown,  // OS
+
+				// EXTRA
+				0xa, 0x0, // XLEN // 10
+				0x52, 0x41, // 'R', 'A'
+				0x6, 0x0, // LEN // 6
+				0x1, 0x0, // VER // 1
+				0xff, 0xff, // CHLEN // 65535
+				0x0, 0x0, // CHCNT // 0
+
+				0x01, 0x00, 0x00, 0xff, 0xff, // Empty deflate data (sync/end marker)
+
+				0x0, 0x0, 0x0, 0x0, // CRC32
+				0x0, 0x0, 0x0, 0x0, // ISIZE
+			},
+		},
+		{
 			name: "single chunk single write",
 
 			os:        OSUnknown,
