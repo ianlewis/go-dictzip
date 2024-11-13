@@ -18,4 +18,7 @@
 // See: https://linux.die.net/man/1/dictzip
 // See: https://linux.die.net/man/1/gzip
 // See: https://datatracker.ietf.org/doc/html/rfc1952
+//
+// Unless otherwise informed clients should not assume implementations in this
+// package are safe for parallel execution.
 package dictzip
