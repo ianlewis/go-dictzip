@@ -62,13 +62,9 @@ type Writer struct {
 	// chunkBuf is the current compressed chunk.
 	chunkBuf *bytes.Buffer
 
-	// z is the compression writer used to write the current compressed chunk
-	// to chunkBuf.
-	z *flate.Writer
-
-	// zMW is an io.MultiWriter that writes to both z (flate.Writer) and
-	// digest (hash.Hash32).
-	zMW io.Writer
+	// compressor is the compression writer used to write the current
+	// compressed chunk to chunkBuf.
+	compressor *flate.Writer
 
 	// w is the io.Writer for the final destination for the compressed file.
 	w io.Writer
@@ -102,13 +98,13 @@ func NewWriter(w io.Writer) (*Writer, error) {
 func NewWriterLevel(w io.Writer, level, chunkSize int) (*Writer, error) {
 	tmp, err := os.CreateTemp("", "dictzip.*")
 	if err != nil {
-		return nil, fmt.Errorf("creating temp file: %w", err)
+		return nil, fmt.Errorf("%w: creating temp file: %w", errDictzip, err)
 	}
 
 	var buf bytes.Buffer
 	fw, err := flate.NewWriter(&buf, level)
 	if err != nil {
-		return nil, fmt.Errorf("initializing deflate writer: %w", err)
+		return nil, fmt.Errorf("%w: initializing deflate writer: %w", errDictzip, err)
 	}
 
 	digest := crc32.NewIEEE()
@@ -116,14 +112,13 @@ func NewWriterLevel(w io.Writer, level, chunkSize int) (*Writer, error) {
 		Header: Header{
 			OS: OSUnknown,
 		},
-		tmp:      tmp,
-		hasData:  false,
-		chunkBuf: &buf,
-		z:        fw,
-		zMW:      io.MultiWriter(fw, digest),
-		w:        w,
-		digest:   digest,
-		level:    level,
+		tmp:        tmp,
+		hasData:    false,
+		chunkBuf:   &buf,
+		compressor: fw,
+		w:          w,
+		digest:     digest,
+		level:      level,
 	}
 	z.chunkSize = chunkSize
 
@@ -135,8 +130,8 @@ func (z *Writer) Write(p []byte) (int, error) {
 		return 0, fmt.Errorf("%w: Write called on closed writer", errDictzip)
 	}
 
-	// Write chunks to z.z, resetting the Writer, and flushing chunks to the
-	// z.tmp as necessary.
+	// Write chunks to z.compressor, resetting the Writer, and flushing chunks
+	// to the z.tmp as necessary.
 	var i int
 	for i < len(p) {
 		// Get the end index by adding the chunk size minus any already written
@@ -146,13 +141,18 @@ func (z *Writer) Write(p []byte) (int, error) {
 			j = len(p)
 		}
 
-		// NOTE: Write to the multi-writer to update the CRC digest.
-		n, err := z.zMW.Write(p[i:j])
+		// Compress the data to chunkBuf.
+		n, err := z.compressor.Write(p[i:j])
 		z.isize += int64(n)
-		i += n
 		if err != nil {
-			return i, fmt.Errorf("compressing: %w", err)
+			return i + n, fmt.Errorf("%w: compressing: %w", errDictzip, err)
 		}
+		// Update the CRC-32 digest.
+		_, err = z.digest.Write(p[i : i+n])
+		if err != nil {
+			return i + n, fmt.Errorf("%w: updating digest: %w", errDictzip, err)
+		}
+		i += n
 		if n > 0 {
 			z.hasData = true
 		}
@@ -182,8 +182,8 @@ func (z *Writer) Close() error {
 		return err
 	}
 
-	// Close the flate writer. This will add some trailing markers.
-	if err := z.z.Close(); err != nil {
+	// Close the compressor. This will add some trailing markers.
+	if err := z.compressor.Close(); err != nil {
 		return fmt.Errorf("%w: compressing: %w", errDictzip, err)
 	}
 
@@ -348,7 +348,7 @@ func (z *Writer) flushCompressor() error {
 	if z.hasData {
 		// NOTE: we need to flush the flate writer to make sure it has
 		// written all compressed data to chunkBuf.
-		if err := z.z.Flush(); err != nil {
+		if err := z.compressor.Flush(); err != nil {
 			return fmt.Errorf("%w: compressing: %w", errDictzip, err)
 		}
 
@@ -362,7 +362,7 @@ func (z *Writer) flushCompressor() error {
 
 		// Reset the chunk buffer and flate writer.
 		z.chunkBuf.Reset()
-		z.z.Reset(z.chunkBuf)
+		z.compressor.Reset(z.chunkBuf)
 		z.hasData = false
 	}
 
