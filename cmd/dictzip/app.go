@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v2"
-	"sigs.k8s.io/release-utils/version"
 )
 
 const (
@@ -36,11 +35,14 @@ const (
 	ExitCodeUnknownError
 )
 
+// ErrDictzip is a parent error for all dictzip command errors.
+var ErrDictzip = errors.New("dictzip")
+
 // ErrFlagParse is a flag parsing error.
-var ErrFlagParse = errors.New("parsing flags")
+var ErrFlagParse = fmt.Errorf("%w: parsing flags", ErrDictzip)
 
 // ErrUnsupported indicates a feature is unsupported.
-var ErrUnsupported = errors.New("unsupported")
+var ErrUnsupported = fmt.Errorf("%w: unsupported", ErrDictzip)
 
 //nolint:gochecknoinits // init needed needed for global variable.
 func init() {
@@ -96,15 +98,36 @@ func newDictzipApp() *cli.App {
 				Aliases:            []string{"f"},
 				DisableDefaultText: true,
 			},
+			&cli.BoolFlag{
+				Name:               "no-name",
+				Usage:              "don't save the original filename and timestamp",
+				Aliases:            []string{"n"},
+				DisableDefaultText: true,
+			},
+			&cli.BoolFlag{
+				Name:               "keep",
+				Usage:              "do not delete original file",
+				Aliases:            []string{"k"},
+				DisableDefaultText: true,
+			},
 
-			// TODO(#13): -n --no-name         don't save the original filename and timestamp
-			// TODO(#13): -k --keep            do not delete original file
 			// TODO(#13): -l --list            list compressed file contents
-			// TODO(#13): -L --license         display software license
-			// TODO(#13): -c --stdout          write to stdout (decompression only)
+
+			&cli.BoolFlag{
+				Name:               "license",
+				Usage:              "display software license",
+				Aliases:            []string{"L"},
+				DisableDefaultText: true,
+			},
+			&cli.BoolFlag{
+				Name:               "stdout",
+				Usage:              "write to stdout (decompression only)",
+				Aliases:            []string{"c"},
+				DisableDefaultText: true,
+			},
+
 			// TODO(#13): -t --test            test compressed file integrity
 			// TODO(#13): -v --verbose         verbose mode
-			// TODO(#13): -V --version         display version number
 			// TODO(#13): -D --debug           select debug option
 			// TODO(#13): -s --start <offset>  starting offset for decompression (decimal)
 			// TODO(#13): -e --size <offset>   size for decompression (decimal)
@@ -123,7 +146,7 @@ func newDictzipApp() *cli.App {
 			&cli.BoolFlag{
 				Name:               "version",
 				Usage:              "print version information and exit",
-				Aliases:            []string{"v"},
+				Aliases:            []string{"V"},
 				DisableDefaultText: true,
 			},
 		},
@@ -138,29 +161,42 @@ func newDictzipApp() *cli.App {
 			}
 
 			if c.Bool("version") {
-				versionInfo := version.GetVersionInfo()
-				_ = must(fmt.Fprintf(c.App.Writer, `%s %s
-Copyright (c) Google LLC
+				return printVersion(c)
+			}
 
-%s`, c.App.Name, versionInfo.GitVersion, versionInfo.String()))
+			if c.Bool("license") {
+				return printLicense(c)
+			}
+
+			// decompress
+			if c.Bool("decompress") {
+				for _, path := range c.Args().Slice() {
+					d := decompress{
+						path:   path,
+						force:  c.Bool("force"),
+						keep:   c.Bool("keep"),
+						stdout: c.Bool("stdout"),
+					}
+					if err := d.Run(); err != nil {
+						return err
+					}
+				}
 				return nil
 			}
 
+			// compress
 			for _, path := range c.Args().Slice() {
-				if !c.Bool("decompress") {
-					return fmt.Errorf("%w: compression not supported yet", ErrUnsupported)
+				// compress
+				c := compress{
+					path:   path,
+					force:  c.Bool("force"),
+					noName: c.Bool("no-name"),
+					keep:   c.Bool("keep"),
 				}
-
-				// decompress
-				d := decompress{
-					path:  path,
-					force: c.Bool("force"),
-				}
-				if err := d.Run(); err != nil {
+				if err := c.Run(); err != nil {
 					return err
 				}
 			}
-
 			return nil
 		},
 		ExitErrHandler: func(c *cli.Context, err error) {

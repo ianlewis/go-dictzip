@@ -15,7 +15,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -26,11 +25,13 @@ import (
 )
 
 type decompress struct {
-	path  string
-	force bool
+	path   string
+	force  bool
+	keep   bool
+	stdout bool
 }
 
-var errTruncate = errors.New("cannot truncate filename")
+var errTruncate = fmt.Errorf("%w: cannot truncate filename", ErrDictzip)
 
 func (d *decompress) Run() error {
 	newPath := strings.TrimRight(d.path, filepath.Ext(d.path))
@@ -40,7 +41,7 @@ func (d *decompress) Run() error {
 
 	from, err := os.Open(d.path)
 	if err != nil {
-		return fmt.Errorf("opening file: %w", err)
+		return fmt.Errorf("%w: opening file: %w", ErrDictzip, err)
 	}
 	defer from.Close()
 
@@ -50,26 +51,52 @@ func (d *decompress) Run() error {
 		flags |= os.O_EXCL
 	}
 
-	dst, err := os.OpenFile(newPath, flags, 0o644)
-	if err != nil {
-		return fmt.Errorf("opening target file: %w", err)
-	}
-	defer dst.Close()
+	var dst io.WriteCloser
 
-	z, err := dictzip.NewReader(from)
-	if err != nil {
-		return fmt.Errorf("reading archive: %w", err)
-	}
-
-	_, err = io.Copy(dst, z)
-	if err != nil {
-		return fmt.Errorf("decompressing file %q: %w", from.Name(), err)
+	if d.stdout {
+		dst = os.Stdout
+	} else {
+		dst, err = os.OpenFile(newPath, flags, 0o644)
+		if err != nil {
+			return fmt.Errorf("%w: opening target file: %w", ErrDictzip, err)
+		}
+		defer dst.Close()
 	}
 
-	err = os.Remove(d.path)
+	err = d.decompress(dst, from)
 	if err != nil {
-		return fmt.Errorf("removing file: %w", err)
+		return err
+	}
+
+	if !d.keep && !d.stdout {
+		err = os.Remove(d.path)
+		if err != nil {
+			return fmt.Errorf("%w: removing file: %w", ErrDictzip, err)
+		}
 	}
 
 	return nil
+}
+
+func (d *decompress) decompress(dst io.Writer, src *os.File) (err error) {
+	z, err := dictzip.NewReader(src)
+	if err != nil {
+		err = fmt.Errorf("%w: reading archive: %w", ErrDictzip, err)
+		return
+	}
+	defer func() {
+		// NOTE: this sets the returned error in the deferred func.
+		clsErr := z.Close()
+		if err != nil {
+			err = clsErr
+		}
+	}()
+
+	_, err = io.Copy(dst, z)
+	if err != nil {
+		err = fmt.Errorf("%w: decompressing file %q: %w", ErrDictzip, src.Name(), err)
+		return
+	}
+
+	return
 }
