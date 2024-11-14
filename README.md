@@ -21,16 +21,60 @@ To install this package run
 
 ## Examples
 
+### Reading compressed files.
+
 You can open a dictionary file and read it much like a normal reader.
+
+```golang
+// Open the dictionary.
+f, _ := os.Open("dictionary.dict.dz")
+r, _ := dictzip.NewReader(f)
+defer r.Close()
+
+uncompressedData, _ = io.ReadAll(r)
+```
+
+### Random access.
+
 Random access can be performed using the `ReadAt` method.
 
 ```golang
 // Open the dictionary.
 f, _ := os.Open("dictionary.dict.dz")
 r, _ := dictzip.NewReader(f)
+defer r.Close()
 
 buf := make([]byte, 12)
 _, _ = r.ReadAt(buf, 5)
+```
+
+### Writing compressed files.
+
+Dictzip files can be written using the `dictzip.Writer`. Compressed data is
+stored in chunks and chunk sizes are stored in the archive header allowing for
+more efficient random access.
+
+```golang
+// Open the dictionary.
+f, _ := os.Open("dictionary.dict.dz", os.O_WRONLY|os.O_CREATE, 0o644)
+w, _ := dictzip.NewWriter(f)
+defer w.Close()
+
+buf := []byte("Hello World!")
+_, _ = r.Write(buf)
+```
+
+## dictzip Command
+
+This repository also includes a `dictzip` command that is compatible with the
+[dictzip(1)](https://linux.die.net/man/1/dictzip) command.
+
+```shell
+# compress dictionary.dict to dictionary.dict.dz
+$ dictzip dictionary.dict
+
+# decompress dictionary.dict.dz to dictionary.dict
+$ dictzip -d dictionary.dict.dz
 ```
 
 ## Related projects
