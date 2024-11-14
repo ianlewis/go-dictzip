@@ -17,11 +17,11 @@ run:
   concurrency: 2
   deadline: 5m
 issues:
-  # include:
-  #   - EXC0012
-  #   - EXC0013
-  #   - EXC0014
-  #   - EXC0015
+  include:
+    - EXC0012
+    - EXC0013
+    - EXC0014
+    - EXC0015
   # Maximum issues count per one linter.
   # Set to 0 to disable.
   # Default: 50

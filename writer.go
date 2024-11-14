@@ -28,15 +28,29 @@ import (
 )
 
 const (
+	// DefaultChunkSize is the default chunk size used when writing dictzip files.
 	DefaultChunkSize = math.MaxUint16
 )
 
 const (
-	NoCompression      = flate.NoCompression
-	BestSpeed          = flate.BestSpeed
-	BestCompression    = flate.BestCompression
+	// NoCompression performs no compression on the input.
+	NoCompression = flate.NoCompression
+
+	// BestSpeed provides the lowest level of compression but the fastest
+	// performance.
+	BestSpeed = flate.BestSpeed
+
+	// BestCompression provides the highest level of compression but the slowest
+	// performance.
+	BestCompression = flate.BestCompression
+
+	// DefaultCompression is the default compression level used for compressing
+	// chunks. It provides a balance between compression and performance.
 	DefaultCompression = flate.DefaultCompression
-	HuffmanOnly        = flate.HuffmanOnly
+
+	// HuffmanOnly disables Lempel-Ziv match searching and only performs Huffman
+	// entropy encoding. See [flate.HuffmanOnly].
+	HuffmanOnly = flate.HuffmanOnly
 )
 
 // Writer implements [io.WriteCloser] for writing dictzip files. Writer writes
