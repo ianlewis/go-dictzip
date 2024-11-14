@@ -21,7 +21,7 @@ To install this package run
 
 ## Examples
 
-### Reading compressed files.
+### Reading compressed files
 
 You can open a dictionary file and read it much like a normal reader.
 
@@ -34,7 +34,7 @@ defer r.Close()
 uncompressedData, _ = io.ReadAll(r)
 ```
 
-### Random access.
+### Random access
 
 Random access can be performed using the `ReadAt` method.
 
@@ -48,7 +48,7 @@ buf := make([]byte, 12)
 _, _ = r.ReadAt(buf, 5)
 ```
 
-### Writing compressed files.
+### Writing compressed files
 
 Dictzip files can be written using the `dictzip.Writer`. Compressed data is
 stored in chunks and chunk sizes are stored in the archive header allowing for
