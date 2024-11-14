@@ -140,7 +140,7 @@ func (h *Header) ChunkSize() int {
 	return h.chunkSize
 }
 
-// Offsets returns the dictzip sizes for the compressed data chunks.
+// Sizes returns the dictzip sizes for the compressed data chunks.
 func (h *Header) Sizes() []int {
 	return h.sizes
 }
