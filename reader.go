@@ -337,10 +337,10 @@ const (
 
 // FLG (Flags).
 // bit 0 : FTEXT (ignored).
-// bit 1 : FHCRC (ignored).
+// bit 1 : FHCRC.
 // bit 2 : FEXTRA (required for dictzip).
-// bit 3 : FNAME (ignored).
-// bit 4 : FCOMMENT (ignored).
+// bit 3 : FNAME.
+// bit 4 : FCOMMENT.
 // bit 5 : reserved (ignored).
 // bit 6 : reserved (ignored).
 // bit 7 : reserved	(ignored).
