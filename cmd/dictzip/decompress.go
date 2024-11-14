@@ -25,10 +25,11 @@ import (
 )
 
 type decompress struct {
-	path   string
-	force  bool
-	keep   bool
-	stdout bool
+	path    string
+	force   bool
+	keep    bool
+	stdout  bool
+	verbose bool
 }
 
 var errTruncate = fmt.Errorf("%w: cannot truncate filename", ErrDictzip)
@@ -63,9 +64,26 @@ func (d *decompress) Run() error {
 		defer dst.Close()
 	}
 
-	err = d.decompress(dst, from)
+	uncompressedSize, sizes, err := d.decompress(dst, from)
 	if err != nil {
 		return err
+	}
+
+	remaining := uncompressedSize
+	if d.verbose {
+		var compressedSize int64
+		for _, size := range sizes {
+			compressedSize += int64(size)
+		}
+		chunkSize := int64(dictzip.DefaultChunkSize)
+		if remaining < chunkSize {
+			chunkSize = remaining
+		}
+		remaining -= chunkSize
+		for i, size := range sizes {
+			fmt.Printf("chunk %d: %d -> %d (%.2f%%) of %d total\n", i+1, size, chunkSize,
+				(1-float64(size)/float64(chunkSize))*100, uncompressedSize)
+		}
 	}
 
 	if !d.keep && !d.stdout {
@@ -78,21 +96,22 @@ func (d *decompress) Run() error {
 	return nil
 }
 
-func (d *decompress) decompress(dst io.Writer, src *os.File) (err error) {
+func (d *decompress) decompress(dst io.Writer, src *os.File) (n int64, sizes []int, err error) {
 	z, err := dictzip.NewReader(src)
 	if err != nil {
 		err = fmt.Errorf("%w: reading archive: %w", ErrDictzip, err)
 		return
 	}
+	sizes = z.Sizes()
 	defer func() {
 		// NOTE: this sets the returned error in the deferred func.
 		clsErr := z.Close()
-		if err != nil {
+		if err == nil {
 			err = clsErr
 		}
 	}()
 
-	_, err = io.Copy(dst, z)
+	n, err = io.Copy(dst, z)
 	if err != nil {
 		err = fmt.Errorf("%w: decompressing file %q: %w", ErrDictzip, src.Name(), err)
 		return
