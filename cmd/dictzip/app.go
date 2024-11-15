@@ -110,9 +110,18 @@ func newDictzipApp() *cli.App {
 				Aliases:            []string{"k"},
 				DisableDefaultText: true,
 			},
-
-			// TODO(#13): -l --list            list compressed file contents
-
+			&cli.BoolFlag{
+				Name:               "list",
+				Usage:              "list compressed file contents",
+				Aliases:            []string{"l"},
+				DisableDefaultText: true,
+			},
+			&cli.BoolFlag{
+				Name:               "test",
+				Usage:              "test compressed file integrity",
+				Aliases:            []string{"t"},
+				DisableDefaultText: true,
+			},
 			&cli.BoolFlag{
 				Name:               "license",
 				Usage:              "display software license",
@@ -126,9 +135,15 @@ func newDictzipApp() *cli.App {
 				DisableDefaultText: true,
 			},
 
-			// TODO(#13): -t --test            test compressed file integrity
-			// TODO(#13): -v --verbose         verbose mode
-			// TODO(#13): -D --debug           select debug option
+			&cli.BoolFlag{
+				Name:               "verbose",
+				Usage:              "verbose mode",
+				Aliases:            []string{"v"},
+				DisableDefaultText: true,
+			},
+
+			// NOTE: -D --debug flag is not supported.
+
 			// TODO(#13): -s --start <offset>  starting offset for decompression (decimal)
 			// TODO(#13): -e --size <offset>   size for decompression (decimal)
 			// TODO(#13): -S --Start <offset>  starting offset for decompression (base64)
@@ -168,14 +183,27 @@ func newDictzipApp() *cli.App {
 				return printLicense(c)
 			}
 
+			if c.Bool("list") || c.Bool("test") {
+				for _, path := range c.Args().Slice() {
+					l := list{
+						path: path,
+					}
+					if err := l.Run(); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
 			// decompress
 			if c.Bool("decompress") {
 				for _, path := range c.Args().Slice() {
 					d := decompress{
-						path:   path,
-						force:  c.Bool("force"),
-						keep:   c.Bool("keep"),
-						stdout: c.Bool("stdout"),
+						path:    path,
+						force:   c.Bool("force"),
+						keep:    c.Bool("keep"),
+						stdout:  c.Bool("stdout"),
+						verbose: c.Bool("verbose"),
 					}
 					if err := d.Run(); err != nil {
 						return err
@@ -188,10 +216,11 @@ func newDictzipApp() *cli.App {
 			for _, path := range c.Args().Slice() {
 				// compress
 				c := compress{
-					path:   path,
-					force:  c.Bool("force"),
-					noName: c.Bool("no-name"),
-					keep:   c.Bool("keep"),
+					path:    path,
+					force:   c.Bool("force"),
+					noName:  c.Bool("no-name"),
+					keep:    c.Bool("keep"),
+					verbose: c.Bool("verbose"),
 				}
 				if err := c.Run(); err != nil {
 					return err

@@ -94,6 +94,7 @@ linters-settings:
 
           # Dependencies
           - "github.com/urfave/cli/v2"
+          - "github.com/rodaine/table"
           - "sigs.k8s.io/release-utils/version"
         deny:
           - pkg: "reflect"
@@ -113,6 +114,7 @@ linters-settings:
           # Dependencies.
           - "github.com/urfave/cli/v2"
           - "github.com/google/go-cmp/cmp"
+          - "github.com/rodaine/table"
           - "sigs.k8s.io/release-utils/version"
         deny:
           - pkg: "reflect"

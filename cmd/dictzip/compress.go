@@ -25,10 +25,11 @@ import (
 )
 
 type compress struct {
-	path   string
-	force  bool
-	noName bool
-	keep   bool
+	path    string
+	force   bool
+	noName  bool
+	keep    bool
+	verbose bool
 }
 
 func (c *compress) Run() error {
@@ -64,17 +65,28 @@ func (c *compress) Run() error {
 	}
 	defer dst.Close()
 
-	z, err := dictzip.NewWriter(dst)
+	uncompressedSize, sizes, err := c.compress(dst, from, fName, modTime)
 	if err != nil {
-		return fmt.Errorf("%w: creating writer: %w", ErrDictzip, err)
+		return err
 	}
-	z.ModTime = modTime
-	z.Name = fName
-	defer z.Close()
 
-	_, err = io.Copy(z, from)
-	if err != nil {
-		return fmt.Errorf("%w: decompressing file %q: %w", ErrDictzip, from.Name(), err)
+	if c.verbose {
+		var compressedSize int64
+		for _, size := range sizes {
+			compressedSize += int64(size)
+		}
+
+		remaining := uncompressedSize
+		for i, size := range sizes {
+			chunkSize := int64(dictzip.DefaultChunkSize)
+			if remaining < chunkSize {
+				chunkSize = remaining
+			}
+			remaining -= chunkSize
+
+			fmt.Printf("chunk %d: %d -> %d (%.2f%%) of %d total\n", i+1, chunkSize, size,
+				(1-float64(size)/float64(chunkSize))*100, uncompressedSize)
+		}
 	}
 
 	if !c.keep {
@@ -85,4 +97,34 @@ func (c *compress) Run() error {
 	}
 
 	return nil
+}
+
+func (c *compress) compress(
+	dst io.Writer, src *os.File, name string, modTime time.Time,
+) (n int64, sizes []int, err error) {
+	z, err := dictzip.NewWriter(dst)
+	if err != nil {
+		err = fmt.Errorf("%w: creating writer: %w", ErrDictzip, err)
+		return
+	}
+	z.ModTime = modTime
+	z.Name = name
+	defer func() {
+		// NOTE: this sets the returned error in the deferred func.
+		clsErr := z.Close()
+		if err == nil {
+			err = clsErr
+		}
+		if clsErr != nil {
+			return
+		}
+		sizes = z.Sizes()
+	}()
+
+	n, err = io.Copy(z, src)
+	if err != nil {
+		err = fmt.Errorf("%w: decompressing file %q: %w", ErrDictzip, src.Name(), err)
+		return
+	}
+	return
 }
