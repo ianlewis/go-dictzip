@@ -45,14 +45,8 @@ func (l *list) Run() error {
 	if err != nil {
 		return fmt.Errorf("%w: stat: %w", ErrDictzip, err)
 	}
+
 	compressed := fInfo.Size()
-
-	// sizes := z.Sizes()
-	// var compressed int64
-	// for _, size := range sizes {
-	// 	compressed += int64(size)
-	// }
-
 	uncompressed, err := io.Copy(io.Discard, z)
 	if err != nil {
 		return fmt.Errorf("%w: reading archive: %w", ErrDictzip, err)
