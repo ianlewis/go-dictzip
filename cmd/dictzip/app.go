@@ -144,8 +144,19 @@ func newDictzipApp() *cli.App {
 
 			// NOTE: -D --debug flag is not supported.
 
-			// TODO(#13): -s --start <offset>  starting offset for decompression (decimal)
-			// TODO(#13): -e --size <offset>   size for decompression (decimal)
+			&cli.Int64Flag{
+				Name:    "start",
+				Usage:   "starting `offset` for decompression (decimal)",
+				Aliases: []string{"s"},
+				Value:   0,
+			},
+			&cli.Int64Flag{
+				Name:        "size",
+				Usage:       "`size` for decompression (decimal)",
+				Aliases:     []string{"e"},
+				DefaultText: "whole file",
+				Value:       -1,
+			},
 			// TODO(#13): -S --Start <offset>  starting offset for decompression (base64)
 			// TODO(#13): -E --Size <offset>   size for decompression (base64)
 			// TODO(#13): -p --pre <filter>    pre-compression filter
@@ -195,8 +206,18 @@ func newDictzipApp() *cli.App {
 				return nil
 			}
 
+			// If --start or --size are specified --decompress is implied.
+			if c.IsSet("start") || c.IsSet("size") {
+				c.Set("decompress", "true")
+			}
+
 			// decompress
 			if c.Bool("decompress") {
+				// If --stdout is specified, --keep is implied.
+				if c.Bool("stdout") {
+					c.Set("keep", "true")
+				}
+
 				for _, path := range c.Args().Slice() {
 					d := decompress{
 						path:    path,
@@ -204,6 +225,8 @@ func newDictzipApp() *cli.App {
 						keep:    c.Bool("keep"),
 						stdout:  c.Bool("stdout"),
 						verbose: c.Bool("verbose"),
+						start:   c.Int64("start"),
+						size:    c.Int64("size"),
 					}
 					if err := d.Run(); err != nil {
 						return err
