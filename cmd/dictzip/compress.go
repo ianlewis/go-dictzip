@@ -70,18 +70,20 @@ func (c *compress) Run() error {
 		return err
 	}
 
-	remaining := uncompressedSize
 	if c.verbose {
 		var compressedSize int64
 		for _, size := range sizes {
 			compressedSize += int64(size)
 		}
-		chunkSize := int64(dictzip.DefaultChunkSize)
-		if remaining < chunkSize {
-			chunkSize = remaining
-		}
-		remaining -= chunkSize
+
+		remaining := uncompressedSize
 		for i, size := range sizes {
+			chunkSize := int64(dictzip.DefaultChunkSize)
+			if remaining < chunkSize {
+				chunkSize = remaining
+			}
+			remaining -= chunkSize
+
 			fmt.Printf("chunk %d: %d -> %d (%.2f%%) of %d total\n", i+1, chunkSize, size,
 				(1-float64(size)/float64(chunkSize))*100, uncompressedSize)
 		}
@@ -97,7 +99,9 @@ func (c *compress) Run() error {
 	return nil
 }
 
-func (c *compress) compress(dst io.Writer, src *os.File, name string, modTime time.Time) (n int64, sizes []int, err error) {
+func (c *compress) compress(
+	dst io.Writer, src *os.File, name string, modTime time.Time,
+) (n int64, sizes []int, err error) {
 	z, err := dictzip.NewWriter(dst)
 	if err != nil {
 		err = fmt.Errorf("%w: creating writer: %w", ErrDictzip, err)

@@ -69,18 +69,20 @@ func (d *decompress) Run() error {
 		return err
 	}
 
-	remaining := uncompressedSize
 	if d.verbose {
 		var compressedSize int64
 		for _, size := range sizes {
 			compressedSize += int64(size)
 		}
-		chunkSize := int64(dictzip.DefaultChunkSize)
-		if remaining < chunkSize {
-			chunkSize = remaining
-		}
-		remaining -= chunkSize
+
+		remaining := uncompressedSize
 		for i, size := range sizes {
+			chunkSize := int64(dictzip.DefaultChunkSize)
+			if remaining < chunkSize {
+				chunkSize = remaining
+			}
+			remaining -= chunkSize
+
 			fmt.Printf("chunk %d: %d -> %d (%.2f%%) of %d total\n", i+1, size, chunkSize,
 				(1-float64(size)/float64(chunkSize))*100, uncompressedSize)
 		}
