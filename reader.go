@@ -116,7 +116,7 @@ type Header struct {
 	// Comment is the COMMENT header field.
 	Comment string
 
-	// Extra is the EXTRA data field.
+	// Extra includes all EXTRA sub-fields except the dictzip RA sub-field.
 	Extra []byte
 
 	// ModTime is the MTIME modification time field.
@@ -279,21 +279,21 @@ func (z *Reader) readChunk(offset int64, size int) ([]byte, error) {
 	chunkFileOffset := chunkNum * int64(z.chunkSize)
 
 	// The size to read from the chunk. Includes some amount of data
-	// (offset - chunkFileOffset bytes) at the beginning of the chunk that will
+	// (readStart bytes) at the beginning of the chunk that will
 	// be discarded.
 	int64size := int64(size)
-	chunkReadSize := int64size + (offset - chunkFileOffset)
+	readStart := (offset - chunkFileOffset)
+	chunkReadSize := int64size + readStart
 
 	buf := make([]byte, chunkReadSize)
 	totalRead := int64(0)
-	readStart := chunkReadSize - int64size
 	var err error
 
 	// Attempt to read the full amount requested.
 	// NOTE: It seems that the flate.Reader may read less than the given buffer
-	// size and still not return an error. This is different than most
-	// io.Reader implementations.
-	for err == nil && totalRead < int64size {
+	// size and still not return an error if reading across a sync marker. This
+	// is different than most io.Reader implementations.
+	for err == nil && totalRead < chunkReadSize {
 		var n int
 		n, err = z.z.Read(buf[totalRead:])
 		totalRead += int64(n)
@@ -403,7 +403,6 @@ func (z *Reader) readExtra() (int, int, []int, error) {
 	if err != nil {
 		return totalRead, 0, nil, headerErr(fmt.Errorf("reading EXTRA: %w", err))
 	}
-	z.Extra = extra
 	z.digest.Write(extra)
 
 	// NOTE: The EXTRA field could could contain multiple sub-fields.
@@ -439,6 +438,10 @@ func (z *Reader) readExtra() (int, int, []int, error) {
 				return totalRead, 0, nil, err
 			}
 			foundRAField = true
+		} else {
+			// Append the non-RA extra data field.
+			z.Extra = append(z.Extra, buf...)
+			z.Extra = append(z.Extra, extraBuf...)
 		}
 	}
 

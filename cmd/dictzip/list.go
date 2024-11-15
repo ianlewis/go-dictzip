@@ -41,26 +41,33 @@ func (l *list) Run() error {
 	}
 	defer z.Close()
 
-	sizes := z.Sizes()
-	var compressed int64
-	for _, size := range sizes {
-		compressed += int64(size)
+	fInfo, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("%w: stat: %w", ErrDictzip, err)
 	}
+	compressed := fInfo.Size()
+
+	// sizes := z.Sizes()
+	// var compressed int64
+	// for _, size := range sizes {
+	// 	compressed += int64(size)
+	// }
 
 	uncompressed, err := io.Copy(io.Discard, z)
 	if err != nil {
 		return fmt.Errorf("%w: reading archive: %w", ErrDictzip, err)
 	}
 
-	tbl := table.New("type", "date", "time", "chunks", "compressed", "uncompressed", "ratio", "name")
+	tbl := table.New("type", "date", "time", "chunks", "size", "compressed", "uncompressed", "ratio", "name")
 	tbl.AddRow(
 		"dzip",
 		z.ModTime.Format("2006-01-02"),
 		z.ModTime.Format("15:04:05"),
-		len(sizes),
+		len(z.Sizes()),
+		z.ChunkSize(),
 		fmt.Sprintf("%d", compressed),
 		fmt.Sprintf("%d", uncompressed),
-		fmt.Sprintf("%.2f", (1-float64(compressed)/float64(uncompressed))*100),
+		fmt.Sprintf("%.1f%%", (1-float64(compressed)/float64(uncompressed))*100),
 		z.Name,
 	)
 	tbl.Print()
