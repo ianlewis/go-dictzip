@@ -121,7 +121,7 @@ func (d *decompress) decompress(dst io.Writer, src *os.File) (n int64, sizes []i
 		return
 	}
 
-	if d.size != -1 {
+	if d.size < 0 {
 		n, err = io.CopyN(dst, z, d.size)
 	} else {
 		n, err = io.Copy(dst, z)
