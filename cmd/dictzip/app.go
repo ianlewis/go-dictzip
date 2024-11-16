@@ -195,15 +195,7 @@ func newDictzipApp() *cli.App {
 			}
 
 			if c.Bool("list") || c.Bool("test") {
-				for _, path := range c.Args().Slice() {
-					l := list{
-						path: path,
-					}
-					if err := l.Run(); err != nil {
-						return err
-					}
-				}
-				return nil
+				return listCmd(c)
 			}
 
 			// If --start or --size are specified --decompress is implied.
@@ -215,45 +207,11 @@ func newDictzipApp() *cli.App {
 
 			// decompress
 			if c.Bool("decompress") {
-				// If --stdout is specified, --keep is implied.
-				if c.Bool("stdout") {
-					if err := c.Set("keep", "true"); err != nil {
-						return fmt.Errorf("%w: internal error: %w", ErrDictzip, err)
-					}
-				}
-
-				for _, path := range c.Args().Slice() {
-					d := decompress{
-						path:    path,
-						force:   c.Bool("force"),
-						keep:    c.Bool("keep"),
-						stdout:  c.Bool("stdout"),
-						verbose: c.Bool("verbose"),
-						start:   c.Int64("start"),
-						size:    c.Int64("size"),
-					}
-					if err := d.Run(); err != nil {
-						return err
-					}
-				}
-				return nil
+				return decompressCmd(c)
 			}
 
 			// compress
-			for _, path := range c.Args().Slice() {
-				// compress
-				c := compress{
-					path:    path,
-					force:   c.Bool("force"),
-					noName:  c.Bool("no-name"),
-					keep:    c.Bool("keep"),
-					verbose: c.Bool("verbose"),
-				}
-				if err := c.Run(); err != nil {
-					return err
-				}
-			}
-			return nil
+			return compressCmd(c)
 		},
 		ExitErrHandler: func(c *cli.Context, err error) {
 			if err == nil {
@@ -270,4 +228,57 @@ func newDictzipApp() *cli.App {
 			cli.OsExiter(ExitCodeUnknownError)
 		},
 	}
+}
+
+func listCmd(c *cli.Context) error {
+	for _, path := range c.Args().Slice() {
+		l := list{
+			path: path,
+		}
+		if err := l.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func compressCmd(c *cli.Context) error {
+	for _, path := range c.Args().Slice() {
+		c := compress{
+			path:    path,
+			force:   c.Bool("force"),
+			noName:  c.Bool("no-name"),
+			keep:    c.Bool("keep"),
+			verbose: c.Bool("verbose"),
+		}
+		if err := c.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func decompressCmd(c *cli.Context) error {
+	// If --stdout is specified, --keep is implied.
+	if c.Bool("stdout") {
+		if err := c.Set("keep", "true"); err != nil {
+			return fmt.Errorf("%w: internal error: %w", ErrDictzip, err)
+		}
+	}
+
+	for _, path := range c.Args().Slice() {
+		d := decompress{
+			path:    path,
+			force:   c.Bool("force"),
+			keep:    c.Bool("keep"),
+			stdout:  c.Bool("stdout"),
+			verbose: c.Bool("verbose"),
+			start:   c.Int64("start"),
+			size:    c.Int64("size"),
+		}
+		if err := d.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

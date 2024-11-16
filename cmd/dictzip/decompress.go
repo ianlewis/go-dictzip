@@ -114,23 +114,26 @@ func (d *decompress) decompress(dst io.Writer, src *os.File) (n int64, sizes []i
 			err = clsErr
 		}
 	}()
-
-	_, err = z.Seek(d.start, io.SeekStart)
-	if err != nil {
-		err = fmt.Errorf("%w: seeking %q: %w", ErrDictzip, src.Name(), err)
-		return
-	}
-
-	if d.size != -1 {
-		n, err = io.CopyN(dst, z, d.size)
-	} else {
-		n, err = io.Copy(dst, z)
-	}
-
-	if err != nil {
-		err = fmt.Errorf("%w: decompressing file %q: %w", ErrDictzip, src.Name(), err)
-		return
-	}
-
+	n, err = d.seekCopy(dst, z)
 	return
+}
+
+func (d *decompress) seekCopy(dst io.Writer, src *dictzip.Reader) (int64, error) {
+	if _, err := src.Seek(d.start, io.SeekStart); err != nil {
+		return 0, fmt.Errorf("%w: Seek: %w", ErrDictzip, err)
+	}
+
+	var err error
+	var n int64
+	if d.size != -1 {
+		n, err = io.CopyN(dst, src, d.size)
+	} else {
+		n, err = io.Copy(dst, src)
+	}
+
+	if err != nil {
+		return n, fmt.Errorf("%w: decompressing: %w", ErrDictzip, err)
+	}
+
+	return n, nil
 }
