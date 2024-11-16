@@ -264,6 +264,10 @@ func (z *Reader) Seek(offset int64, whence int) (int64, error) {
 // number of bytes advanced in the underlying reader and bytes read.
 func (z *Reader) readChunk(offset int64, size int) ([]byte, error) {
 	chunkNum := offset / int64(z.chunkSize)
+	if chunkNum >= int64(len(z.offsets)) {
+		// NOTE: We are trying to seek past the end of the file.
+		return nil, io.EOF
+	}
 	chunkOffset := z.offsets[chunkNum]
 
 	if _, err := z.r.Seek(chunkOffset, io.SeekStart); err != nil {
