@@ -205,11 +205,6 @@ func newDictzipApp() *cli.App {
 				}
 			}
 
-			// If --start or --size are specified --decompress is implied.
-			if c.IsSet("start") || c.IsSet("size") {
-				c.Set("decompress", "true")
-			}
-
 			// decompress
 			if c.Bool("decompress") {
 				return decompressCmd(c)
