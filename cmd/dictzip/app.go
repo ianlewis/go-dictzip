@@ -144,8 +144,19 @@ func newDictzipApp() *cli.App {
 
 			// NOTE: -D --debug flag is not supported.
 
-			// TODO(#13): -s --start <offset>  starting offset for decompression (decimal)
-			// TODO(#13): -e --size <offset>   size for decompression (decimal)
+			&cli.Int64Flag{
+				Name:    "start",
+				Usage:   "starting `offset` for decompression (decimal)",
+				Aliases: []string{"s"},
+				Value:   0,
+			},
+			&cli.Int64Flag{
+				Name:        "size",
+				Usage:       "`size` for decompression (decimal)",
+				Aliases:     []string{"e"},
+				DefaultText: "whole file",
+				Value:       -1,
+			},
 			// TODO(#13): -S --Start <offset>  starting offset for decompression (base64)
 			// TODO(#13): -E --Size <offset>   size for decompression (base64)
 			// TODO(#13): -p --pre <filter>    pre-compression filter
@@ -184,49 +195,23 @@ func newDictzipApp() *cli.App {
 			}
 
 			if c.Bool("list") || c.Bool("test") {
-				for _, path := range c.Args().Slice() {
-					l := list{
-						path: path,
-					}
-					if err := l.Run(); err != nil {
-						return err
-					}
+				return listCmd(c)
+			}
+
+			// If --start or --size are specified --decompress is implied.
+			if c.IsSet("start") || c.IsSet("size") {
+				if err := c.Set("decompress", "true"); err != nil {
+					return fmt.Errorf("%w: internal error: %w", ErrDictzip, err)
 				}
-				return nil
 			}
 
 			// decompress
 			if c.Bool("decompress") {
-				for _, path := range c.Args().Slice() {
-					d := decompress{
-						path:    path,
-						force:   c.Bool("force"),
-						keep:    c.Bool("keep"),
-						stdout:  c.Bool("stdout"),
-						verbose: c.Bool("verbose"),
-					}
-					if err := d.Run(); err != nil {
-						return err
-					}
-				}
-				return nil
+				return decompressCmd(c)
 			}
 
 			// compress
-			for _, path := range c.Args().Slice() {
-				// compress
-				c := compress{
-					path:    path,
-					force:   c.Bool("force"),
-					noName:  c.Bool("no-name"),
-					keep:    c.Bool("keep"),
-					verbose: c.Bool("verbose"),
-				}
-				if err := c.Run(); err != nil {
-					return err
-				}
-			}
-			return nil
+			return compressCmd(c)
 		},
 		ExitErrHandler: func(c *cli.Context, err error) {
 			if err == nil {
@@ -243,4 +228,57 @@ func newDictzipApp() *cli.App {
 			cli.OsExiter(ExitCodeUnknownError)
 		},
 	}
+}
+
+func listCmd(c *cli.Context) error {
+	for _, path := range c.Args().Slice() {
+		l := list{
+			path: path,
+		}
+		if err := l.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func compressCmd(c *cli.Context) error {
+	for _, path := range c.Args().Slice() {
+		c := compress{
+			path:    path,
+			force:   c.Bool("force"),
+			noName:  c.Bool("no-name"),
+			keep:    c.Bool("keep"),
+			verbose: c.Bool("verbose"),
+		}
+		if err := c.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func decompressCmd(c *cli.Context) error {
+	// If --stdout is specified, --keep is implied.
+	if c.Bool("stdout") {
+		if err := c.Set("keep", "true"); err != nil {
+			return fmt.Errorf("%w: internal error: %w", ErrDictzip, err)
+		}
+	}
+
+	for _, path := range c.Args().Slice() {
+		d := decompress{
+			path:    path,
+			force:   c.Bool("force"),
+			keep:    c.Bool("keep"),
+			stdout:  c.Bool("stdout"),
+			verbose: c.Bool("verbose"),
+			start:   c.Int64("start"),
+			size:    c.Int64("size"),
+		}
+		if err := d.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -30,6 +30,8 @@ type decompress struct {
 	keep    bool
 	stdout  bool
 	verbose bool
+	start   int64
+	size    int64
 }
 
 var errTruncate = fmt.Errorf("%w: cannot truncate filename", ErrDictzip)
@@ -88,7 +90,7 @@ func (d *decompress) Run() error {
 		}
 	}
 
-	if !d.keep && !d.stdout {
+	if !d.keep {
 		err = os.Remove(d.path)
 		if err != nil {
 			return fmt.Errorf("%w: removing file: %w", ErrDictzip, err)
@@ -113,11 +115,26 @@ func (d *decompress) decompress(dst io.Writer, src *os.File) (n int64, sizes []i
 		}
 	}()
 
-	n, err = io.Copy(dst, z)
-	if err != nil {
-		err = fmt.Errorf("%w: decompressing file %q: %w", ErrDictzip, src.Name(), err)
-		return
+	n, err = d.seekCopy(dst, z)
+	return
+}
+
+func (d *decompress) seekCopy(dst io.Writer, src *dictzip.Reader) (int64, error) {
+	if _, err := src.Seek(d.start, io.SeekStart); err != nil {
+		return 0, fmt.Errorf("%w: Seek: %w", ErrDictzip, err)
 	}
 
-	return
+	var err error
+	var n int64
+	if d.size >= 0 {
+		n, err = io.CopyN(dst, src, d.size)
+	} else {
+		n, err = io.Copy(dst, src)
+	}
+
+	if err != nil {
+		return n, fmt.Errorf("%w: decompressing: %w", ErrDictzip, err)
+	}
+
+	return n, nil
 }
