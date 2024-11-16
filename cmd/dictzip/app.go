@@ -208,14 +208,18 @@ func newDictzipApp() *cli.App {
 
 			// If --start or --size are specified --decompress is implied.
 			if c.IsSet("start") || c.IsSet("size") {
-				c.Set("decompress", "true")
+				if err := c.Set("decompress", "true"); err != nil {
+					return fmt.Errorf("%w: internal error: %w", ErrDictzip, err)
+				}
 			}
 
 			// decompress
 			if c.Bool("decompress") {
 				// If --stdout is specified, --keep is implied.
 				if c.Bool("stdout") {
-					c.Set("keep", "true")
+					if err := c.Set("keep", "true"); err != nil {
+						return fmt.Errorf("%w: internal error: %w", ErrDictzip, err)
+					}
 				}
 
 				for _, path := range c.Args().Slice() {
