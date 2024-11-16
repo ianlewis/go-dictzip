@@ -515,6 +515,141 @@ func TestReader_Seek(t *testing.T) {
 	}
 }
 
+func TestReader_Seek_EOF_last_chunk(t *testing.T) {
+	t.Parallel()
+
+	// NOTE: uncompressed data: "chunk1chunk2chunk3last"
+	z, err := NewReader(bytes.NewReader([]byte{
+		// Header
+		hdrGzipID1,
+		hdrGzipID2,
+		hdrDeflateCM,
+		flgEXTRA,               // FLG
+		0x00, 0x00, 0x00, 0x00, // MTIME
+		0x0,       // XFL
+		OSUnknown, // OS
+
+		// EXTRA
+		0x12, 0x0, // XLEN // 18
+		0x52, 0x41, // 'R', 'A'
+		0xe, 0x0, // LEN // 14
+		0x1, 0x0, // VER // 1
+		0x6, 0x0, // CHLEN // 6
+		0x4, 0x0, // CHCNT // 4
+
+		// Chunk sizes.
+		0xc, 0x0, // 12
+		0xc, 0x0, // 12
+		0xc, 0x0, // 12
+		0x0a, 0x00, // 10
+
+		// compressed data (three 12 byte chunks and one 10 byte chunk).
+		0x4a, 0xce, 0x28, 0xcd, 0xcb, 0x36, 0x04, 0x00, 0x00, 0x00, 0xff, 0xff,
+		0x4a, 0xce, 0x28, 0xcd, 0xcb, 0x36, 0x02, 0x00, 0x00, 0x00, 0xff, 0xff,
+		0x4a, 0xce, 0x28, 0xcd, 0xcb, 0x36, 0x06, 0x00, 0x00, 0x00, 0xff, 0xff,
+		0xca, 0x49, 0x2c, 0x2e, 0x01, 0x00, 0x00, 0x00, 0xff, 0xff,
+
+		0x01, 0x00, 0x00, 0xff, 0xff, // sync/end marker.
+
+		0x70, 0xee, 0xf4, 0x09, // CRC-32
+		0x16, 0x00, 0x00, 0x00, // ISIZE // 22 (len of data)
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// NOTE: Seek past EOF but still within chunk size of last chunk.
+	off, err := z.Seek(22, io.SeekStart)
+	if diff := cmp.Diff(int64(22), off); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(int64(22), z.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(nil, err, cmpopts.EquateErrors()); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	buf := make([]byte, 10)
+	n, err := z.Read(buf)
+	if diff := cmp.Diff(0, n); diff != "" {
+		t.Errorf("Read (-want, +got):\n%s", diff)
+	}
+
+	// If Seek goes past the end of the file we return io.EOF.
+	if diff := cmp.Diff(io.EOF, err, cmpopts.EquateErrors()); diff != "" {
+		t.Errorf("Read: %v", err)
+	}
+
+	// z.offset should not be advanced.
+	if diff := cmp.Diff(int64(22), z.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+}
+
+func TestReader_Seek_EOF_past_last_chunk(t *testing.T) {
+	t.Parallel()
+
+	z, err := NewReader(bytes.NewReader([]byte{
+		// Header
+		hdrGzipID1,
+		hdrGzipID2,
+		hdrDeflateCM,
+		flgEXTRA,               // FLG
+		0x00, 0x00, 0x00, 0x00, // MTIME
+		0x2,       // XFL
+		OSUnknown, // OS
+
+		// EXTRA
+		0xa, 0x0, // XLEN // 10
+		0x52, 0x41, // 'R', 'A'
+		0x6, 0x0, // LEN // 6
+		0x1, 0x0, // VER // 1
+		0x5, 0x0, // CHLEN // 5
+		0x0, 0x0, // CHCNT // 0
+
+		0x3, 0x0, 0x0, // Empty deflate data.
+
+		0x0, 0x0, 0x0, 0x0, // CRC32
+		0x0, 0x0, 0x0, 0x0, // ISIZE
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// NOTE: Seek past the last chunk.
+	off, err := z.Seek(10, io.SeekStart)
+	if diff := cmp.Diff(int64(10), off); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(int64(10), z.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(nil, err, cmpopts.EquateErrors()); diff != "" {
+		t.Errorf("Seek (-want, +got):\n%s", diff)
+	}
+
+	buf := make([]byte, 10)
+	n, err := z.Read(buf)
+	if diff := cmp.Diff(0, n); diff != "" {
+		t.Errorf("Read (-want, +got):\n%s", diff)
+	}
+
+	// If Seek goes past the end of the file we return io.EOF.
+	if diff := cmp.Diff(io.EOF, err, cmpopts.EquateErrors()); diff != "" {
+		t.Fatalf("Read: %v", err)
+	}
+
+	// z.offset should not be advanced.
+	if diff := cmp.Diff(int64(10), z.offset); diff != "" {
+		t.Errorf("r.offset (-want, +got):\n%s", diff)
+	}
+}
+
 func TestReader_Seek_SeekStart_negative(t *testing.T) {
 	t.Parallel()
 

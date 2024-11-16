@@ -358,7 +358,7 @@ func TestWriter(t *testing.T) {
 				0x52, 0x41, // 'R', 'A'
 				0xe, 0x0, // LEN // 14
 				0x1, 0x0, // VER // 1
-				0x6, 0x0, // CHLEN // 65535
+				0x6, 0x0, // CHLEN // 6
 				0x4, 0x0, // CHCNT // 4
 
 				// Chunk sizes.
@@ -404,7 +404,7 @@ func TestWriter(t *testing.T) {
 				0x52, 0x41, // 'R', 'A'
 				0xe, 0x0, // LEN // 14
 				0x1, 0x0, // VER // 1
-				0x6, 0x0, // CHLEN // 65535
+				0x6, 0x0, // CHLEN // 6
 				0x4, 0x0, // CHCNT // 4
 
 				// Chunk sizes.
