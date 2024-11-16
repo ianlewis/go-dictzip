@@ -114,6 +114,7 @@ func (d *decompress) decompress(dst io.Writer, src *os.File) (n int64, sizes []i
 			err = clsErr
 		}
 	}()
+
 	n, err = d.seekCopy(dst, z)
 	return
 }
@@ -125,7 +126,7 @@ func (d *decompress) seekCopy(dst io.Writer, src *dictzip.Reader) (int64, error)
 
 	var err error
 	var n int64
-	if d.size != -1 {
+	if d.size >= 0 {
 		n, err = io.CopyN(dst, src, d.size)
 	} else {
 		n, err = io.Copy(dst, src)
