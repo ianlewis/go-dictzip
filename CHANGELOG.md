@@ -20,3 +20,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - dictzip `Reader` implementation.
 
 [0.1.0]: https://github.com/ianlewis/go-dictzip/releases/tag/v0.1.0
+[0.1.0]: https://github.com/ianlewis/go-dictzip/releases/tag/v0.2.0
