@@ -75,6 +75,10 @@ $ dictzip dictionary.dict
 
 # decompress dictionary.dict.dz to dictionary.dict
 $ dictzip -d dictionary.dict.dz
+
+# decompress part of the file and print to stdout
+$ dictzip --stdout --start 1024 --size 25 dictionary.dict.dz
+dictionary entry contents
 ```
 
 ## Related projects
