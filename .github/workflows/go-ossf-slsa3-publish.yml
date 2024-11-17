@@ -44,8 +44,8 @@ jobs:
           echo "version=$(echo "$version" | cut -c2-)" >> "$GITHUB_OUTPUT"
           exit "${exit_code}"
 
-  build-todos:
-    name: todos-${{matrix.os}}-${{matrix.arch}}
+  build-dictzip:
+    name: dictzip-${{matrix.os}}-${{matrix.arch}}
     needs: [validate]
     strategy:
       matrix:
