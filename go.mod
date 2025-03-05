@@ -1,6 +1,8 @@
 module github.com/ianlewis/go-dictzip
 
-go 1.20
+go 1.23.7
+
+toolchain go1.24.0
 
 require (
 	github.com/google/go-cmp v0.6.0

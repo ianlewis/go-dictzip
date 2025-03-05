@@ -179,6 +179,7 @@ type Reader struct {
 func NewReader(r io.ReadSeeker) (*Reader, error) {
 	fr := flate.NewReader(r)
 	z := &Reader{
+		//nolint:errcheck // flate.NewReader always returns an io.ReadCloser that implements flate.Resetter.
 		z: fr.(readCloseResetter),
 	}
 	if err := z.Reset(r); err != nil {
