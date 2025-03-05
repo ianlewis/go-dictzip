@@ -49,7 +49,7 @@ jobs:
 
           # Check if there are any changes between branches.
           if [[ "$(git diff "${REMOTE_NAME}/main..origin/main")" != "" ]]; then
-            git reset --hard "${BRANCH_NAME}" "${REMOTE_NAME}/main"
+            git branch -f "${BRANCH_NAME}" "${REMOTE_NAME}/main"
             git push origin "${BRANCH_NAME}" -f -v
 
             PR_URL="$(gh pr list --head "${BRANCH_NAME}" --state open --json url --jq .[].url)"
