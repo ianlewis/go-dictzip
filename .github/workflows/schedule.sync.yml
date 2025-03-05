@@ -35,16 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: "${{ env.TEMPLATE_REPO }}"
-
-          # NOTE: We do not want the GITHUB_TOKEN credentials to be persistent
-          #       since we will use a PAT later.
           persist-credentials: false
-
-          # NOTE: We must fetch the full history since we are comparing
-          #       branches with git rev-list
-          fetch-depth: 0
-
       - name: Create PR
         env:
           TEMPLATE_GIT_URI: "https://github.com/${{ env.TEMPLATE_REPO }}.git"
@@ -56,12 +47,9 @@ jobs:
           git remote add "${REMOTE_NAME}" "${TEMPLATE_GIT_URI}"
           git fetch "${REMOTE_NAME}"
 
-          git checkout "${REMOTE_NAME}/main"
-          git switch -c "${BRANCH_NAME}"
-
-          # Check if there are any commits between branches.
-          update_diff="$(git diff ianlewis/repo-template-go..origin/main)"
-          if [[ "${update_diff}" != "" ]]; then
+          # Check if there are any changes between branches.
+          if [[ "$(git diff "${REMOTE_NAME}/main..origin/main")" != "" ]]; then
+            git reset --hard "${BRANCH_NAME}" "${REMOTE_NAME}/main"
             git push origin "${BRANCH_NAME}" -f -v
 
             PR_URL="$(gh pr list --head "${BRANCH_NAME}" --state open --json url --jq .[].url)"
