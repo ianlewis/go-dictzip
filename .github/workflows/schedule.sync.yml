@@ -60,7 +60,7 @@ jobs:
           git switch -c "${BRANCH_NAME}"
 
           # Check if there are any commits between branches.
-          update_diff="$(git diff --name-only main)"
+          update_diff="$(git diff ianlewis/repo-template-go..origin/main)"
           if [[ "${update_diff}" != "" ]]; then
             git push origin "${BRANCH_NAME}" -f -v
 
@@ -72,7 +72,7 @@ jobs:
               workflow_path_parts=("${workflow_ref_path[@]:2}")
               workflow_path=$(IFS='/' ; echo "${workflow_path_parts[*]}")
 
-              gh pr create --base main --head "${BRANCH_NAME}" --title "Sync w/ ${TEMPLATE_REPO}" --body "This PR was created automatically by the Github action [${GITHUB_WORKFLOW}](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/${workflow_path})
+              gh pr create --base main --head "${BRANCH_NAME}" --title "chore: Sync with ${TEMPLATE_REPO}" --body "This PR was created automatically by the Github action [${GITHUB_WORKFLOW}](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/${workflow_path})
 
           It merges with the [${TEMPLATE_REPO}](https://github.com/${TEMPLATE_REPO}) at HEAD"
             fi
