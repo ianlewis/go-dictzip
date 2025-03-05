@@ -1,0 +1,80 @@
+# Copyright 2025 Ian Lewis
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "repo-template-go sync"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+permissions: {}
+
+env:
+  TEMPLATE_OWNER: "ianlewis"
+  TEMPLATE_NAME: "repo-template-go"
+  TEMPLATE_REPO: "ianlewis/repo-template-go"
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: "${{ env.TEMPLATE_REPO }}"
+
+          # NOTE: We do not want the GITHUB_TOKEN credentials to be persistent
+          #       since we will use a PAT later.
+          persist-credentials: false
+
+          # NOTE: We must fetch the full history since we are comparing
+          #       branches with git rev-list
+          fetch-depth: 0
+
+      - name: Create PR
+        env:
+          TEMPLATE_GIT_URI: "https://github.com/${{ env.TEMPLATE_REPO }}.git"
+          REMOTE_NAME: "${{ env.TEMPLATE_NAME }}"
+          BRANCH_NAME: "${{ env.TEMPLATE_NAME }}"
+        run: |
+          set -xeuo pipefail
+
+          git remote add "${REMOTE_NAME}" "${TEMPLATE_GIT_URI}"
+          git fetch "${REMOTE_NAME}"
+
+          git checkout "${REMOTE_NAME}/main"
+          git switch -c "${BRANCH_NAME}"
+
+          # Check if there are any commits between branches.
+          if [[ "$(git rev-list main.."${BRANCH_NAME}" --count)" != "0" ]]; then
+            git push origin "${BRANCH_NAME}" -f -v
+
+            PR_URL="$(gh pr list --head "${BRANCH_NAME}" --state open --json url --jq .[].url)"
+            if [[ -z "${PR_URL}" ]]; then
+              repo_template_head="$(git rev-parse --short "${REMOTE_NAME}/main")"
+
+              # Parse out the workflow path from the GITHUB_WORKFLOW_REF
+              IFS='@' read -ra workflow_ref <<< "${GITHUB_WORKFLOW_REF}"
+              IFS='/' read -ra workflow_ref_path <<< "${workflow_ref[0]}"
+              workflow_path_parts=("${workflow_ref_path[@]:2}")
+              workflow_path=$(IFS='/' ; echo "${workflow_path_parts[*]}")
+
+              gh pr create --base main --head "${BRANCH_NAME}" --title "Sync w/ ${TEMPLATE_REPO} at ${repo_template_head}" --body "This PR was created automatically by the Github action [${GITHUB_WORKFLOW}](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/${workflow_path})
+
+          It merges with the [${TEMPLATE_REPO}](https://github.com/${TEMPLATE_REPO}) at commit ${repo_template_head}"
+            fi
+          fi
