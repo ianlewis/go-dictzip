@@ -49,7 +49,7 @@ jobs:
         env:
           TEMPLATE_GIT_URI: "https://github.com/${{ env.TEMPLATE_REPO }}.git"
           REMOTE_NAME: "${{ env.TEMPLATE_NAME }}"
-          BRANCH_NAME: "${{ env.TEMPLATE_NAME }}"
+          BRANCH_NAME: "${{ env.TEMPLATE_REPO }}"
         run: |
           set -xeuo pipefail
 
@@ -60,21 +60,20 @@ jobs:
           git switch -c "${BRANCH_NAME}"
 
           # Check if there are any commits between branches.
-          if [[ "$(git rev-list main.."${BRANCH_NAME}" --count)" != "0" ]]; then
+          update_diff="$(git diff --name-only main)"
+          if [[ "${update_diff}" != "" ]]; then
             git push origin "${BRANCH_NAME}" -f -v
 
             PR_URL="$(gh pr list --head "${BRANCH_NAME}" --state open --json url --jq .[].url)"
             if [[ -z "${PR_URL}" ]]; then
-              repo_template_head="$(git rev-parse --short "${REMOTE_NAME}/main")"
-
               # Parse out the workflow path from the GITHUB_WORKFLOW_REF
               IFS='@' read -ra workflow_ref <<< "${GITHUB_WORKFLOW_REF}"
               IFS='/' read -ra workflow_ref_path <<< "${workflow_ref[0]}"
               workflow_path_parts=("${workflow_ref_path[@]:2}")
               workflow_path=$(IFS='/' ; echo "${workflow_path_parts[*]}")
 
-              gh pr create --base main --head "${BRANCH_NAME}" --title "Sync w/ ${TEMPLATE_REPO} at ${repo_template_head}" --body "This PR was created automatically by the Github action [${GITHUB_WORKFLOW}](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/${workflow_path})
+              gh pr create --base main --head "${BRANCH_NAME}" --title "Sync w/ ${TEMPLATE_REPO}" --body "This PR was created automatically by the Github action [${GITHUB_WORKFLOW}](https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/${workflow_path})
 
-          It merges with the [${TEMPLATE_REPO}](https://github.com/${TEMPLATE_REPO}) at commit ${repo_template_head}"
+          It merges with the [${TEMPLATE_REPO}](https://github.com/${TEMPLATE_REPO}) at HEAD"
             fi
           fi
