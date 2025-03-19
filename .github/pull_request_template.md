@@ -1,5 +1,3 @@
-<!-- markdownlint-disable first-line-h1 -->
-
 **Description:**
 
 <!-- Add a detailed description of the change and the rationale -->
@@ -19,4 +17,3 @@ proposing them via a Pull Request. -->
 - [ ] Add unit tests if applicable.
 - [ ] Update documentation if applicable.
 - [ ] Add a note in the [CHANGELOG.md](../blob/main/CHANGELOG.md) if applicable.
-- [ ] Sign the [Google CLA](https://cla.developers.google.com/about/google-corporate).
