@@ -5,10 +5,10 @@ go 1.23.7
 toolchain go1.24.0
 
 require (
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/rodaine/table v1.3.0
-	github.com/urfave/cli/v2 v2.27.5
-	sigs.k8s.io/release-utils v0.7.7
+	github.com/urfave/cli/v2 v2.27.6
+	sigs.k8s.io/release-utils v0.11.0
 )
 
 require (
